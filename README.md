@@ -63,7 +63,7 @@ docker compose build
 docker compose up -d
 ```
 
-6 - Запускаем фронт:
+6 - Возвращаемся в консоль для фронта и запускаем фронт:
 
 ``` bash
 npm run dev
