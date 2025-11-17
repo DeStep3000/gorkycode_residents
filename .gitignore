@@ -242,3 +242,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+*.zip
