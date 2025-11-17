@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models import Sender, Ticket, Message
-from src.adapters.repo_protocols import SenderRepo, TicketRepo, MessageRepo
+from src.protocols.repo_protocols import SenderRepo, TicketRepo, MessageRepo
 
 
 class SenderRepoImpl(SenderRepo):
@@ -14,9 +14,7 @@ class SenderRepoImpl(SenderRepo):
         return res.scalar_one_or_none()
 
     async def get_by_id(self, sender_id: int) -> Sender | None:
-        res = await self.session.execute(
-            select(Sender).where(Sender.id == sender_id)
-        )
+        res = await self.session.execute(select(Sender).where(Sender.id == sender_id))
         return res.scalars().first()
 
     async def add(self, sender: Sender) -> Sender:

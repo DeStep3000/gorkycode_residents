@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 from src.core.config import settings
 from src.db.models import Sender
 from src.dto.auth import RegisterRequest, LoginRequest
-from src.adapters.repo_protocols import SenderRepo
+from src.protocols.repo_protocols import SenderRepo
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

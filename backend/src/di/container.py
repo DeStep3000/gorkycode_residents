@@ -9,8 +9,8 @@ from dishka import (
 from dishka.integrations.fastapi import FastapiProvider
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.adapters.ai_protocol import AIClient
-from src.adapters.repo_protocols import SenderRepo, TicketRepo, MessageRepo
+from src.protocols.ai_protocol import AIClient
+from src.protocols.repo_protocols import SenderRepo, TicketRepo, MessageRepo
 from src.db.session import SessionFactory
 from src.adapters.repo_sqlalchemy import (
     SenderRepoImpl,

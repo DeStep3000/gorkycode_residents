@@ -1,7 +1,7 @@
 from typing import AsyncIterator
 
-from src.adapters.ai_protocol import AIClient
-from src.adapters.repo_protocols import TicketRepo, MessageRepo
+from src.protocols.ai_protocol import AIClient
+from src.protocols.repo_protocols import TicketRepo, MessageRepo
 from src.db.models import Message, MessageRole
 
 

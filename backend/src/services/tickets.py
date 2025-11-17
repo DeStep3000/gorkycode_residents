@@ -1,10 +1,15 @@
-from src.adapters.ai_protocol import AIClient
-from src.adapters.repo_protocols import TicketRepo, MessageRepo
+from src.protocols.ai_protocol import AIClient
+from src.protocols.repo_protocols import TicketRepo, MessageRepo
 from src.db.models import Ticket, Message, MessageRole
 
 
 class TicketService:
-    def __init__(self, ticket_repo: TicketRepo, message_repo: MessageRepo, ai_client: AIClient,):
+    def __init__(
+        self,
+        ticket_repo: TicketRepo,
+        message_repo: MessageRepo,
+        ai_client: AIClient,
+    ):
         self.ticket_repo = ticket_repo
         self.message_repo = message_repo
         self.ai_client = ai_client

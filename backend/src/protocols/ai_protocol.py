@@ -9,5 +9,5 @@ class AIClient(Protocol):
         yield ""
 
     async def complete(
-            self, ticket_id: int, user_message: str, history: list[dict]) -> str:
-        ...
+        self, ticket_id: int, user_message: str, history: list[dict]
+    ) -> str: ...
