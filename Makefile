@@ -40,3 +40,4 @@ shell-db:
 
 seed:
 	docker compose exec -T db psql -U portal -d portal < backend/sql/seed.sql
+# type backend/sql/seed.sql | docker compose exec -T db psql -U portal -d portal

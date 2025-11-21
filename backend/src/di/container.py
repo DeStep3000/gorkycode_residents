@@ -1,5 +1,3 @@
-from collections.abc import AsyncIterator
-
 from dishka import (
     provide,
     Scope,
@@ -7,40 +5,36 @@ from dishka import (
     make_async_container,
 )
 from dishka.integrations.fastapi import FastapiProvider
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.protocols.ai_protocol import AIClient
-from src.protocols.repo_protocols import SenderRepo, TicketRepo, MessageRepo
-from src.db.session import SessionFactory
-from src.adapters.repo_sqlalchemy import (
-    SenderRepoImpl,
-    TicketRepoImpl,
-    MessageRepoImpl,
+from src.adapters.notifier import DummyNotifier
+from src.protocols.ai import AIClientProtocol
+from src.protocols.notifier import NotifierProtocol
+from src.protocols.repo import (
+    ComplaintRepositoryProtocol,
+    ComplaintHistoryRepositoryProtocol,
 )
-from src.adapters.ai_openai import EchoAIClient
-from src.services.auth import AuthService
-from src.services.tickets import TicketService
-from src.services.chat import ChatService
+from src.adapters.repo import (
+    ComplaintRepository,
+    ComplaintHistoryRepository,
+)
+from src.adapters.ai import DummyAIClient
+
+from src.services.complaints import ComplaintService
 
 
 class AppProvider(Provider):
     scope = Scope.APP
 
-    @provide(scope=Scope.APP)
-    async def session(self) -> AsyncIterator[AsyncSession]:
-        async with SessionFactory() as session:
-            async with session.begin():
-                yield session
+    complaints_repo = provide(
+        source=ComplaintRepository, provides=ComplaintRepositoryProtocol
+    )
+    complaints_history_repo = provide(
+        source=ComplaintHistoryRepository, provides=ComplaintHistoryRepositoryProtocol
+    )
+    ai_adapter = provide(source=DummyAIClient, provides=AIClientProtocol)
+    notifier_adapter = provide(source=DummyNotifier, provides=NotifierProtocol)
 
-    sender_repo = provide(source=SenderRepoImpl, provides=SenderRepo)
-    ticket_repo = provide(source=TicketRepoImpl, provides=TicketRepo)
-    message_repo = provide(source=MessageRepoImpl, provides=MessageRepo)
-
-    ai_client = provide(source=EchoAIClient, provides=AIClient)
-
-    auth_service = provide(AuthService)
-    ticket_service = provide(TicketService)
-    chat_service = provide(ChatService)
+    complaints_service = provide(ComplaintService)
 
 
 provider = AppProvider()
