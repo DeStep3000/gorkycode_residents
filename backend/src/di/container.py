@@ -17,7 +17,7 @@ from src.adapters.repo import (
     ComplaintRepository,
     ComplaintHistoryRepository,
 )
-from src.adapters.ai import DummyAIClient
+from src.adapters.ai import YandexAIClient
 
 from src.services.complaints import ComplaintService
 
@@ -31,7 +31,7 @@ class AppProvider(Provider):
     complaints_history_repo = provide(
         source=ComplaintHistoryRepository, provides=ComplaintHistoryRepositoryProtocol
     )
-    ai_adapter = provide(source=DummyAIClient, provides=AIClientProtocol)
+    ai_adapter = provide(source=YandexAIClient, provides=AIClientProtocol)
     notifier_adapter = provide(source=DummyNotifier, provides=NotifierProtocol)
 
     complaints_service = provide(ComplaintService)
