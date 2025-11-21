@@ -1,83 +1,78 @@
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import (
-    String,
     Integer,
-    ForeignKey,
-    Text,
+    String,
     DateTime,
-    Enum,
+    ForeignKey,
+    JSON,
+    ARRAY,
+    text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from src.db.base import Base
-import enum
+from enum import StrEnum
 
 
-class RoleEnum(str, enum.Enum):
-    user = "user"
-    admin = "admin"
+class ComplaintStatus(StrEnum):
+    NEW = "new"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    BLOCKED = "blocked"
+    REDIRECTED = "redirected"
 
 
-class Sender(Base):  # пользователь
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
-    name: Mapped[str] = mapped_column(String(100))
-    surname: Mapped[str] = mapped_column(String(100))
-    fathername: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    role: Mapped[RoleEnum] = mapped_column(
-        Enum(RoleEnum), default=RoleEnum.user, nullable=False
+class Complaint(Base):
+    __tablename__ = "complaints"
+
+    complaint_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    status: Mapped[str] = mapped_column(
+        String, default=ComplaintStatus.NEW.value, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()"), nullable=False
+    )
+    description: Mapped[str] = mapped_column(String, nullable=False)
+    district: Mapped[str] = mapped_column(String, nullable=True)
+    resolution: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    execution_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    executor_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    final_status_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
-    tickets: Mapped[list["Ticket"]] = relationship(back_populates="sender")
-
-
-class Service(Base):
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255))
-    address: Mapped[str] = mapped_column(String(255))
-    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
-
-    categories: Mapped[list["Category"]] = relationship(back_populates="service")
-
-
-class Category(Base):
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255))
-    service_id: Mapped[int] = mapped_column(ForeignKey("service.id"))
-
-    service: Mapped[Service] = relationship(back_populates="categories")
-    tickets: Mapped[list["Ticket"]] = relationship(back_populates="category")
-
-
-class Ticket(Base):  # заявка
-    id: Mapped[int] = mapped_column(primary_key=True)
-    description: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    relevance: Mapped[int] = mapped_column(Integer, default=5)
-
-    sender_id: Mapped[int] = mapped_column(ForeignKey("sender.id"))
-    category_id: Mapped[int | None] = mapped_column(
-        ForeignKey("category.id"), nullable=True
+    history: Mapped["ComplaintHistory"] = relationship(
+        "ComplaintHistory",
+        back_populates="complaint",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
 
-    sender: Mapped[Sender] = relationship(back_populates="tickets")
-    category: Mapped[Category | None] = relationship(back_populates="tickets")
-    messages: Mapped[list["Message"]] = relationship(back_populates="ticket")
 
+class ComplaintHistory(Base):
+    """
+    Одна запись на complaint_id:
+    - executors_ids: список id исполнителей, которые уже трогали заявку (в порядке).
+    - responses: JSON вида {executor_id: {"response": "...", "timestamp": "..."}}
+    """
 
-class MessageRole(str, enum.Enum):
-    user = "user"
-    assistant = "assistant"
+    __tablename__ = "complaint_histories"
 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    complaint_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("complaints.complaint_id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
 
-class Message(Base):
-    id: Mapped[int] = mapped_column(primary_key=True)
-    ticket_id: Mapped[int] = mapped_column(ForeignKey("ticket.id"))
-    role: Mapped[MessageRole] = mapped_column(Enum(MessageRole))
-    content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    executors_ids: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    responses: Mapped[dict] = mapped_column(JSON, default=dict)
 
-    ticket: Mapped[Ticket] = relationship(back_populates="messages")
+    complaint: Mapped[Complaint] = relationship("Complaint", back_populates="history")
