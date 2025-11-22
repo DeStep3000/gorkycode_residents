@@ -8,9 +8,16 @@ class ModerationDashboard {
       { id: '123003', status: 'moderation', position: 333 },
       { id: '122711', status: 'moderation', position: 579 },
       { id: '122710', status: 'moderation', position: 456 },
-      { id: '122291', status: 'moderation', position: 702 },
+      { id: '122291', status: 'redirected', position: 702 }, // Заявка с перенаправлением ИИ
       { id: '123456', status: 'moderation', position: 948 },
       { id: '122555', status: 'moderation', position: 825 }
+    ];
+
+    this.notifications = [
+      { id: 1, applicationId: '122291', type: 'redirected', message: 'Заявка №122291 перенаправлена ИИ', read: false },
+      { id: 2, applicationId: '123191', type: 'stopped', message: 'Заявка №123191 остановлена ИИ', read: false },
+      { id: 3, applicationId: '101239', type: 'redirected', message: 'Заявка №101239 перенаправлена ИИ', read: false },
+      { id: 4, applicationId: '111029', type: 'redirected', message: 'Заявка №111029 перенаправлена ИИ', read: false }
     ];
 
     this.init();
@@ -42,7 +49,10 @@ class ModerationDashboard {
               <svg class="bell-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle class="notification-dot" cx="18" cy="6" r="3" fill="#ff4444"/>
+                ${this.getUnreadNotificationsCount() > 0 ? `
+                  <circle class="notification-dot" cx="18" cy="6" r="3" fill="#FF3E3E"/>
+                  <text x="18" y="8" text-anchor="middle" fill="white" font-size="8" font-weight="bold">${this.getUnreadNotificationsCount()}</text>
+                ` : ''}
               </svg>
             </div>
           </div>
@@ -152,8 +162,53 @@ class ModerationDashboard {
             <!-- Applications will be rendered here -->
           </div>
         </div>
+
+        <!-- Уведомления -->
+        <div class="notifications-panel" id="notificationsPanel">
+          <div class="notifications-header">
+            <h3>Уведомления</h3>
+            <div class="close-notifications" id="closeNotifications">×</div>
+          </div>
+          <div class="notifications-list" id="notificationsList">
+            ${this.renderNotifications()}
+          </div>
+        </div>
+
+        <!-- Всплывающее уведомление для заявки 122291 -->
+        ${this.applications.find(app => app.id === '122291' && app.status === 'redirected') ? `
+          <div class="floating-notification" id="floatingNotification">
+            <div class="notification-header">
+              <div class="notification-title">Заявка №122291 перенаправлена ИИ</div>
+              <div class="close-notification" id="closeFloatingNotification">
+                <div class="close-icon"></div>
+              </div>
+            </div>
+            <div class="notification-body">
+              Данная заявка не в нашей компетенции. За данную территорию отвечает ДУК Московского района Перенаправьте данную заявку туда.
+            </div>
+          </div>
+        ` : ''}
       </div>
     `;
+  }
+
+  getUnreadNotificationsCount() {
+    return this.notifications.filter(notification => !notification.read).length;
+  }
+
+  renderNotifications() {
+    if (this.notifications.length === 0) {
+      return '<div class="no-notifications">Нет новых уведомлений</div>';
+    }
+
+    return this.notifications.map(notification => `
+      <div class="notification-item ${notification.read ? 'read' : 'unread'}" data-id="${notification.id}">
+        <div class="notification-dot"></div>
+        <div class="notification-content">
+          <div class="notification-message">${notification.message}</div>
+        </div>
+      </div>
+    `).join('');
   }
 
   renderApplications() {
@@ -187,6 +242,7 @@ class ModerationDashboard {
   getStatusText(status) {
     const statusTexts = {
       'moderation': 'Нужна модерация',
+      'redirected': 'Перенаправлена ИИ',
       'approved': 'Одобрена',
       'rejected': 'Отклонена'
     };
@@ -202,7 +258,7 @@ class ModerationDashboard {
   }
 
   addEventListeners() {
-    // Add click handlers for applications - entire card is clickable
+    // Add click handlers for applications
     const applications = document.querySelectorAll('.application-frame');
     applications.forEach(app => {
       app.addEventListener('click', () => {
@@ -220,7 +276,39 @@ class ModerationDashboard {
     const notificationIcon = document.querySelector('.notification-icon');
     notificationIcon.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.handleNotificationClick();
+      this.toggleNotificationsPanel();
+    });
+
+    // Close notifications panel
+    const closeNotifications = document.getElementById('closeNotifications');
+    if (closeNotifications) {
+      closeNotifications.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeNotificationsPanel();
+      });
+    }
+
+    // Close floating notification
+    const closeFloatingNotification = document.getElementById('closeFloatingNotification');
+    if (closeFloatingNotification) {
+      closeFloatingNotification.addEventListener('click', () => {
+        this.closeFloatingNotification();
+      });
+    }
+
+    // Notification items click handlers
+    const notificationItems = document.querySelectorAll('.notification-item');
+    notificationItems.forEach(item => {
+      item.addEventListener('click', () => {
+        this.handleNotificationClick(item.dataset.id);
+      });
+    });
+
+    // Close notifications when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.notifications-panel') && !e.target.closest('.notification-icon')) {
+        this.closeNotificationsPanel();
+      }
     });
 
     // Menu items click handlers
@@ -241,10 +329,8 @@ class ModerationDashboard {
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
 
       if (scrollTop > lastScrollTop && scrollTop > 100) {
-        // Scrolling down
         header.classList.add('header-hidden');
       } else {
-        // Scrolling up
         header.classList.remove('header-hidden');
       }
 
@@ -257,13 +343,55 @@ class ModerationDashboard {
     this.navigateToApplicationDetail(applicationId);
   }
 
-  handleNotificationClick() {
-    console.log('Notification icon clicked - feature not implemented');
-    const notification = document.querySelector('.notification-icon');
-    notification.classList.add('notification-pulse');
-    setTimeout(() => {
-      notification.classList.remove('notification-pulse');
-    }, 500);
+  handleNotificationClick(notificationId) {
+    const notification = this.notifications.find(n => n.id == notificationId);
+    if (notification) {
+      notification.read = true;
+      this.updateNotificationsUI();
+      this.navigateToApplicationDetail(notification.applicationId);
+    }
+  }
+
+  toggleNotificationsPanel() {
+    const panel = document.getElementById('notificationsPanel');
+    panel.classList.toggle('active');
+  }
+
+  closeNotificationsPanel() {
+    const panel = document.getElementById('notificationsPanel');
+    panel.classList.remove('active');
+  }
+
+  closeFloatingNotification() {
+    const floatingNotification = document.getElementById('floatingNotification');
+    if (floatingNotification) {
+      floatingNotification.style.display = 'none';
+    }
+  }
+
+  updateNotificationsUI() {
+    const notificationsList = document.getElementById('notificationsList');
+    const notificationIcon = document.querySelector('.notification-icon');
+
+    if (notificationsList) {
+      notificationsList.innerHTML = this.renderNotifications();
+    }
+
+    // Update notification dot
+    const bellIcon = document.querySelector('.bell-icon');
+    const existingDot = bellIcon.querySelector('.notification-dot');
+    const existingText = bellIcon.querySelector('text');
+
+    if (existingDot) existingDot.remove();
+    if (existingText) existingText.remove();
+
+    const unreadCount = this.getUnreadNotificationsCount();
+    if (unreadCount > 0) {
+      bellIcon.innerHTML += `
+        <circle class="notification-dot" cx="18" cy="6" r="3" fill="#FF3E3E"/>
+        <text x="18" y="8" text-anchor="middle" fill="white" font-size="8" font-weight="bold">${unreadCount}</text>
+      `;
+    }
   }
 
   navigateToApplicationDetail(applicationId) {
@@ -272,9 +400,7 @@ class ModerationDashboard {
 
   toggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
-    const menuIcon = document.querySelector('.menu-icon');
     sidebar.classList.toggle('sidebar-collapsed');
-    menuIcon.classList.toggle('menu-icon-close');
   }
 }
 

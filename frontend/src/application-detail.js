@@ -15,27 +15,35 @@ class ApplicationDetail {
 
   createLayout() {
     const app = document.getElementById('app');
-    
+
     app.innerHTML = `
       <div class="wireframe">
         <div class="header">
-          <div class="menu-icon">
-            <span></span>
-            <span></span>
-            <span></span>
+          <div class="header-left">
+            <div class="menu-icon">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="logo-placeholder"></div>
           </div>
-          <div class="logo-placeholder"></div>
-          <div class="header-actions">
-            <button class="btn btn-back">← Назад к списку</button>
+          <div class="header-right">
+            <div class="notification-icon">
+              <svg class="bell-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle class="notification-dot" cx="18" cy="6" r="3" fill="#ff4444"/>
+              </svg>
+            </div>
           </div>
         </div>
-        
+
         <div class="sidebar">
           <div class="sidebar-header">
             <div class="sidebar-title">Аналитический цент...</div>
             <div class="sidebar-subtitle">Силайн</div>
           </div>
-          
+
           <nav class="sidebar-menu">
             <div class="menu-section">
               <div class="menu-title">Меню</div>
@@ -90,7 +98,7 @@ class ApplicationDetail {
                 </li>
               </ul>
             </div>
-            
+
             <div class="menu-section">
               <div class="menu-title">Администрирование</div>
               <ul class="menu-list">
@@ -113,7 +121,7 @@ class ApplicationDetail {
               </ul>
             </div>
           </nav>
-          
+
           <div class="sidebar-footer">
             <div class="user-info">
               <div class="user-avatar"></div>
@@ -124,15 +132,16 @@ class ApplicationDetail {
             </div>
           </div>
         </div>
-        
+
         <div class="main-content">
           <div class="content-header">
+            <h1>Сообщения</h1>
             <div class="application-header-card">
-              <div class="card-header">
-                <span class="card-title">Карточка сообщения</span>
-                <div class="application-id">
-                  <span class="id-label">Id</span>
-                  <div class="id-value">${this.applicationId}</div>
+              <div class="card-title">Карточка сообщения</div>
+              <div class="id-section">
+                <span class="id-label">Id</span>
+                <div class="id-input-container">
+                  <span class="id-value">${this.applicationId}</span>
                 </div>
               </div>
             </div>
@@ -148,14 +157,14 @@ class ApplicationDetail {
             </div>
           </div>
 
-          <div class="history-container">
-            <div class="history-header">
-              <div class="history-column date-column">Дата</div>
-              <div class="history-column author-column">Автор</div>
-              <div class="history-column changes-column">Изменено</div>
+          <div class="history-table">
+            <div class="table-header">
+              <div class="table-header-cell">Дата</div>
+              <div class="table-header-cell">Автор</div>
+              <div class="table-header-cell">Изменено</div>
             </div>
-            
-            <div class="history-items" id="historyItems">
+
+            <div class="table-body" id="historyItems">
               <!-- History items will be rendered here -->
             </div>
           </div>
@@ -173,8 +182,8 @@ class ApplicationDetail {
         changes: [
           {
             type: 'status',
-            from: { label: 'Остановлено ИИ', color: '#FEB049' },
-            to: { label: 'На модерации', color: '#FEB049' }
+            from: { label: 'Остановлено ИИ', colorClass: 'orange' },
+            to: { label: 'На модерации', colorClass: 'orange' }
           },
           {
             type: 'assigned',
@@ -190,8 +199,8 @@ class ApplicationDetail {
         changes: [
           {
             type: 'status',
-            from: { label: 'Остановлено ИИ', color: '#FEB049' },
-            to: { label: 'Взято в работу ответственным', color: '#006ABC' }
+            from: { label: 'Остановлено ИИ', colorClass: 'orange' },
+            to: { label: 'Взято в работу ответственным', colorClass: 'blue' }
           },
           {
             type: 'assigned',
@@ -207,8 +216,8 @@ class ApplicationDetail {
         changes: [
           {
             type: 'status',
-            from: { label: 'Остановлено ИИ', color: '#FEB049' },
-            to: { label: 'Назначено ответственному', color: '#006ABC' }
+            from: { label: 'Остановлено ИИ', colorClass: 'orange' },
+            to: { label: 'Назначено ответственному', colorClass: 'blue' }
           },
           {
             type: 'assigned',
@@ -224,8 +233,8 @@ class ApplicationDetail {
         changes: [
           {
             type: 'status',
-            from: { label: 'Остановлено ИИ', color: '#FEB049' },
-            to: { label: 'Перенаправлено ИИ', color: '#04BD23' }
+            from: { label: 'Остановлено ИИ', colorClass: 'orange' },
+            to: { label: 'Перенаправлено ИИ', colorClass: 'green' }
           },
           {
             type: 'assigned',
@@ -239,7 +248,7 @@ class ApplicationDetail {
 
   renderHistory() {
     const container = document.getElementById('historyItems');
-    
+
     this.historyData.forEach(item => {
       const historyElement = this.createHistoryElement(item);
       container.appendChild(historyElement);
@@ -248,37 +257,21 @@ class ApplicationDetail {
 
   createHistoryElement(item) {
     const historyElement = document.createElement('div');
-    historyElement.className = 'history-item';
-    
-    const changesHTML = item.changes.map(change => {
-      if (change.type === 'status') {
-        return `
-          <div class="change-row">
-            <div class="change-label">Статус</div>
-            <div class="status-badge" style="background: ${change.from.color}">${change.from.label}</div>
-            <div class="change-arrow">=></div>
-            <div class="status-badge" style="background: ${change.to.color}">${change.to.label}</div>
-          </div>
-        `;
-      } else if (change.type === 'assigned') {
-        return `
-          <div class="change-row">
-            <div class="change-label">Назначено</div>
-            <div class="assigned-value">${change.from}</div>
-            <div class="change-arrow">=></div>
-            <div class="assigned-value">${change.to}</div>
-          </div>
-        `;
-      }
-      return '';
-    }).join('');
+    historyElement.className = 'table-row';
 
     historyElement.innerHTML = `
-      <div class="history-item-background">
-        <div class="history-date">${item.date}</div>
-        <div class="history-author">${item.author}</div>
-        <div class="history-changes">
-          ${changesHTML}
+      <div class="table-cell date-cell">
+        <div class="date-time">
+          <div class="date-part">${item.date.split(' ')[0]}</div>
+          <div class="time-part">${item.date.split(' ')[1]}</div>
+        </div>
+      </div>
+      <div class="table-cell author-cell">
+        ${item.author}
+      </div>
+      <div class="table-cell changes-cell">
+        <div class="changes-content">
+          ${item.changes.map(change => this.createChangeBlock(change)).join('')}
         </div>
       </div>
     `;
@@ -286,11 +279,48 @@ class ApplicationDetail {
     return historyElement;
   }
 
+  createChangeBlock(change) {
+    if (change.type === 'status') {
+      return `
+        <div class="change-block status-block">
+          <div class="change-row">
+            <span class="change-label">Статус</span>
+            <div class="status-combination">
+              <div class="status-badge ${change.from.colorClass}">${change.from.label}</div>
+              <span class="change-arrow">=></span>
+              <div class="status-badge ${change.to.colorClass}">${change.to.label}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (change.type === 'assigned') {
+      return `
+        <div class="change-block assignment-block">
+          <div class="change-row">
+            <span class="change-label">Назначено</span>
+            <div class="assignment-combination">
+              <span class="assigned-value">${change.from}</span>
+              ${change.from !== change.to ? `<span class="change-arrow">=></span><span class="assigned-value">${change.to}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    return '';
+  }
+
   addEventListeners() {
-    // Back button
-    const backButton = document.querySelector('.btn-back');
-    backButton.addEventListener('click', () => {
-      this.goBackToList();
+    // Menu icon click handler
+    const menuIcon = document.querySelector('.menu-icon');
+    menuIcon.addEventListener('click', () => {
+      this.toggleSidebar();
+    });
+
+    // Notification icon click handler
+    const notificationIcon = document.querySelector('.notification-icon');
+    notificationIcon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.handleNotificationClick();
     });
 
     // Tabs
@@ -303,13 +333,7 @@ class ApplicationDetail {
       });
     });
 
-    // Menu icon
-    const menuIcon = document.querySelector('.menu-icon');
-    menuIcon.addEventListener('click', () => {
-      this.toggleSidebar();
-    });
-
-    // Menu items
+    // Menu items click handlers
     const menuItems = document.querySelectorAll('.menu-item');
     menuItems.forEach(item => {
       item.addEventListener('click', () => {
@@ -319,15 +343,18 @@ class ApplicationDetail {
     });
   }
 
-  goBackToList() {
-    // Here you would typically navigate back to the list view
-    // For now, we'll just reload the page to show the list
-    window.location.reload();
-  }
-
   switchTab(tabName) {
     console.log('Switching to tab:', tabName);
     // Implement tab switching logic here
+  }
+
+  handleNotificationClick() {
+    console.log('Notification icon clicked - feature not implemented');
+    const notification = document.querySelector('.notification-icon');
+    notification.classList.add('notification-pulse');
+    setTimeout(() => {
+      notification.classList.remove('notification-pulse');
+    }, 500);
   }
 
   toggleSidebar() {
