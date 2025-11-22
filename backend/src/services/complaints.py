@@ -11,7 +11,7 @@ from src.adapters.repo import (
     TicketStatusRepositoryProtocol,
 )
 from src.adapters.ai import AIClientProtocol
-from src.adapters.notifier import NotifierProtocol
+from src.api.ws import send_notification_to_clients
 from src.schemas.complaint import ComplaintStatus
 from src.schemas.executor_update import ExecutorUpdateRequest
 
@@ -24,14 +24,12 @@ class ComplaintService:
         moderator_repo: ModeratorRepositoryProtocol,
         ticket_status_repo: TicketStatusRepositoryProtocol,
         ai_client: AIClientProtocol,
-        notifier: NotifierProtocol,
     ):
         self._complaint_repo = complaint_repo
         self._executor_repo = executor_repo
         self._moderator_repo = moderator_repo
         self._ticket_status_repo = ticket_status_repo
         self._ai_client = ai_client
-        self._notifier = notifier
 
     # ============================
     # CRUD для Complaint
@@ -219,14 +217,86 @@ class ComplaintService:
             update=update,
         )
 
+        ticket_statuses = await self._ticket_status_repo.get_ticket_status(session, complaint_id)
+
         # Логика перенаправления заявки или закрытия
 
         if ai_result.is_forward and ai_result.target_executor_name:
             # Перенаправляем заявку другому исполнителю
-            complaint.executor_id = await self._executor_repo.get_executor_by_name(
+            ex_id = await self._executor_repo.get_executor_by_name(
                 session, ai_result.target_executor_name
             )
+            if ex_id:
+                complaint.complaint_id = ex_id.executor_id
+
+                flag=False
+                for status in ticket_statuses:
+                    if status.executor_id == update.executor_id:
+                        flag=True
+
+                if flag:
+                    complaint.status = ComplaintStatus.BLOCK_WORKFLOW.value
+                    complaint.final_status_at = datetime.utcnow()
+
+                    await self._complaint_repo.update_complaint(session,
+                                                                complaint.complaint_id,
+                                                                complaint.status,
+                                                                update.response_text,
+                                                                complaint.executor_id,
+                                                                complaint.address, )
+
+                    await self._ticket_status_repo.create_ticket_status(
+                        session,
+                        complaint_id=complaint.complaint_id,
+                        status_code=ComplaintStatus.BLOCK_WORKFLOW.value,
+                        sort_order=2,  # следующий статус
+                        description=update.response_text,
+                        executor_id=complaint.executor_id,
+                    )
+
+                    notification_message = {
+                        "complaint_id": complaint.complaint_id,
+                        "type": "block",
+                        "description": "Произошла блокировка",
+                    }
+                    await send_notification_to_clients(notification_message)
+
+            else:
+                complaint.status = ComplaintStatus.BLOCK_WORKFLOW.value
+                complaint.final_status_at = datetime.utcnow()
+
+                await self._complaint_repo.update_complaint(session,
+                                                            complaint.complaint_id,
+                                                            complaint.status,
+                                                            update.response_text,
+                                                            complaint.executor_id,
+                                                            complaint.address, )
+
+                await self._ticket_status_repo.create_ticket_status(
+                    session,
+                    complaint_id=complaint.complaint_id,
+                    status_code=ComplaintStatus.BLOCK_WORKFLOW.value,
+                    sort_order=2,  # следующий статус
+                    description=update.response_text,
+                    executor_id=complaint.executor_id,
+                )
+
+                notification_message = {
+                    "complaint_id": complaint.complaint_id,
+                    "type": "block",
+                    "description": "Произошла блокировка",
+                }
+                await send_notification_to_clients(notification_message)
+
+
             complaint.status = ComplaintStatus.ASSIGNED_RESPONSIBLE.value
+
+            await self._complaint_repo.update_complaint(session,
+                                                        complaint.complaint_id,
+                                                        complaint.status,
+                                                        update.response_text,
+                                                        complaint.executor_id,
+                                                        complaint.address,)
 
             # Создаем новую запись в ticket_status
             await self._ticket_status_repo.create_ticket_status(
@@ -237,14 +307,42 @@ class ComplaintService:
                 description=update.response_text,
                 executor_id=complaint.executor_id,
             )
+
+            notification_message = {
+                "complaint_id": complaint.complaint_id,
+                "type": "redirect",
+                "description": "Перенаправили заявку другому исполнителю",
+            }
+            await send_notification_to_clients(notification_message)
+
         elif ai_result.is_blocking_bounce:
             # Если задача не может быть выполнена (отфутболена), блокируем заявку
             complaint.status = ComplaintStatus.BLOCK_WORKFLOW.value
             complaint.final_status_at = datetime.utcnow()
-            await self._notifier.notify_blocked_complaint(
+
+            await self._complaint_repo.update_complaint(session,
+                                                        complaint.complaint_id,
+                                                        complaint.status,
+                                                        update.response_text,
+                                                        complaint.executor_id,
+                                                        complaint.address,)
+
+            await self._ticket_status_repo.create_ticket_status(
+                session,
                 complaint_id=complaint.complaint_id,
-                reason="executor bounced request without target",
+                status_code=ComplaintStatus.BLOCK_WORKFLOW.value,
+                sort_order=2,  # следующий статус
+                description=update.response_text,
+                executor_id=complaint.executor_id,
             )
+
+            notification_message = {
+                "complaint_id": complaint.complaint_id,
+                "type": "block",
+                "description": "Произошла блокировка",
+            }
+            await send_notification_to_clients(notification_message)
+
         else:
             # Если все хорошо, отправляем на статус "MODERATED"
             complaint.status = ComplaintStatus.MODERATED.value
@@ -259,13 +357,12 @@ class ComplaintService:
                 executor_id=complaint.executor_id,
             )
 
-        # Обновляем жалобу в базе данных
-        await self._complaint_repo.update_complaint(session,
-                                                    complaint.complaint_id,
-                                                    complaint.status,
-                                                    complaint.resolution,
-                                                    complaint.executor_id,
-                                                    complaint.address,)
+            await self._complaint_repo.update_complaint(session,
+                                                        complaint.complaint_id,
+                                                        complaint.status,
+                                                        update.response_text,
+                                                        complaint.executor_id,
+                                                        complaint.address,)
         await session.commit()
         await session.refresh(complaint)
 
