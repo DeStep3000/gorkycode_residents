@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from dishka.integrations.fastapi import FromDishka, inject
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.dto import ExecutorDTO, ComplaintDTO, ModeratorDTO
+from src.api.dto import ExecutorDTO, ComplaintDTO, ModeratorDTO, TicketStatusDTO
 from src.db.session import get_session
 from src.schemas.complaint import (
     ComplaintCreate,
@@ -20,6 +20,28 @@ router = APIRouter()
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
+
+@router.get("/statuses/")
+@inject
+async def list_complaints(
+    db: SessionDep,
+    complaint_service: FromDishka[ComplaintService],
+    complaint_id: int,
+):
+    statuses = await complaint_service.get_ticket_status(db, complaint_id=complaint_id)
+    if not statuses:
+        raise HTTPException(status_code=404, detail="No complaints found")
+    return [
+        TicketStatusDTO(
+            complaint_id=status.complaint_id,
+            status_code=status.status_code,
+            data=status.data,
+            sort_order=status.sort_order,
+            executor_id=status.executor_id,
+            description=status.description,
+        )
+        for status in statuses
+    ]
 
 @router.post("/complaints")
 @inject

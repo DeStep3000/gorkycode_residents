@@ -40,3 +40,13 @@ class ModeratorDTO(BaseModel):
     is_active: bool
 
     complaint_id: int | None
+
+
+class TicketStatusDTO(BaseModel):
+    status_code: str
+    complaint_id: int
+    data: datetime
+    executor_id: int | None
+
+    sort_order: int
+    description: str | None

@@ -226,15 +226,11 @@ class TicketStatusRepository(TicketStatusRepositoryProtocol):
         return ticket_status
 
     async def get_ticket_status(
-        self, session: AsyncSession, complaint_id: int, status_code: str, data: datetime
-    ) -> Optional[TicketStatus]:
-        stmt = select(TicketStatus).filter(
-            TicketStatus.complaint_id == complaint_id,
-            TicketStatus.status_code == status_code,
-            TicketStatus.data == data,
-        )
+        self, session: AsyncSession, complaint_id: int,
+    ) -> List[TicketStatus]:
+        stmt = select(TicketStatus).filter(Complaint.complaint_id == complaint_id)
         result = await session.execute(stmt)
-        return result.scalars().first()
+        return list(result.scalars().all())
 
     async def update_ticket_status(
         self,
