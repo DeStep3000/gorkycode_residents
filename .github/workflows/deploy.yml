@@ -38,9 +38,11 @@ jobs:
             git reset --hard origin/main
 
             # --- Обновляем backend/.env ---
-            cat > backend/.env << 'EOF'
-            YC_API_KEY=${{ secrets.YC_API_KEY }}
+            cat > .env << 'EOF'
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+
             YC_FOLDER_ID=${{ secrets.YC_FOLDER_ID }}
+            YC_API_KEY=${{ secrets.YC_API_KEY }}
             YC_MODEL=${{ secrets.YC_MODEL }}
             EOF
 
