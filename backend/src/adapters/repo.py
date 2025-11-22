@@ -27,6 +27,7 @@ class ExecutorRepository(ExecutorRepositoryProtocol):
         )
         session.add(executor)
         await session.flush()
+        await session.commit()
         return executor
 
     async def get_executor(
@@ -64,6 +65,7 @@ class ExecutorRepository(ExecutorRepositoryProtocol):
                 executor.email = email
             session.add(executor)
             await session.flush()
+            await session.commit()
             return executor
         raise ValueError("Executor not found")
 
@@ -72,6 +74,7 @@ class ExecutorRepository(ExecutorRepositoryProtocol):
         if executor:
             await session.delete(executor)
             await session.flush()
+            await session.commit()
 
 
 class ComplaintRepository(ComplaintRepositoryProtocol):
@@ -93,6 +96,7 @@ class ComplaintRepository(ComplaintRepositoryProtocol):
         )
         session.add(complaint)
         await session.flush()
+        await session.commit()
         return complaint
 
     async def get_complaint(
@@ -130,6 +134,7 @@ class ComplaintRepository(ComplaintRepositoryProtocol):
                 complaint.address = address
             session.add(complaint)
             await session.flush()
+            await session.commit()
             return complaint
         raise ValueError("Complaint not found")
 
@@ -138,6 +143,7 @@ class ComplaintRepository(ComplaintRepositoryProtocol):
         if complaint:
             await session.delete(complaint)
             await session.flush()
+            await session.commit()
 
 
 class ModeratorRepository(ModeratorRepositoryProtocol):
@@ -154,6 +160,7 @@ class ModeratorRepository(ModeratorRepositoryProtocol):
         )
         session.add(moderator)
         await session.flush()
+        await session.commit()
         return moderator
 
     async def get_moderator(
@@ -184,6 +191,7 @@ class ModeratorRepository(ModeratorRepositoryProtocol):
                 moderator.phone = phone
             session.add(moderator)
             await session.flush()
+            await session.commit()
             return moderator
         raise ValueError("Moderator not found")
 
@@ -192,6 +200,7 @@ class ModeratorRepository(ModeratorRepositoryProtocol):
         if moderator:
             await session.delete(moderator)
             await session.flush()
+            await session.commit()
 
 
 class TicketStatusRepository(TicketStatusRepositoryProtocol):
@@ -213,6 +222,7 @@ class TicketStatusRepository(TicketStatusRepositoryProtocol):
         )
         session.add(ticket_status)
         await session.flush()
+        await session.commit()
         return ticket_status
 
     async def get_ticket_status(
@@ -247,6 +257,7 @@ class TicketStatusRepository(TicketStatusRepositoryProtocol):
                 ticket_status.executor_id = executor_id
             session.add(ticket_status)
             await session.flush()
+            await session.commit()
             return ticket_status
         raise ValueError("TicketStatus not found")
 
@@ -259,3 +270,4 @@ class TicketStatusRepository(TicketStatusRepositoryProtocol):
         if ticket_status:
             await session.delete(ticket_status)
             await session.flush()
+            await session.commit()
