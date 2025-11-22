@@ -2,7 +2,7 @@ name: "Gorky Residents Backend"
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
   workflow_dispatch:
 
 concurrency:
@@ -34,8 +34,8 @@ jobs:
 
             # --- Обновляем код ---
             git fetch --all --prune
-            git checkout master
-            git reset --hard origin/master
+            git checkout main
+            git reset --hard origin/main
 
             # --- Обновляем .env ---
             cat > backend/.env << 'EOF'
