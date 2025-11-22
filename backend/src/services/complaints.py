@@ -256,7 +256,7 @@ class ComplaintService:
                 status_code=ComplaintStatus.MODERATED.value,
                 sort_order=2,  # следующий статус
                 description="Задача отправлена на модерацию",
-                executor_id=update.executor_id,
+                executor_id=complaint.executor_id,
             )
 
         # Обновляем жалобу в базе данных
