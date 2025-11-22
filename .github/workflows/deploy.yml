@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-backend-master
+  group: deploy-backend-main
   cancel-in-progress: true
 
 jobs:
@@ -37,14 +37,14 @@ jobs:
             git checkout main
             git reset --hard origin/main
 
-            # --- Обновляем .env ---
+            # --- Обновляем backend/.env ---
             cat > backend/.env << 'EOF'
             YC_API_KEY=${{ secrets.YC_API_KEY }}
             YC_FOLDER_ID=${{ secrets.YC_FOLDER_ID }}
             YC_MODEL=${{ secrets.YC_MODEL }}
             EOF
 
-            echo "Updated .env with Yandex Cloud credentials"
+            echo "Updated backend/.env with Yandex Cloud credentials"
 
             # --- Пересобираем через docker-compose / make ---
             make up
