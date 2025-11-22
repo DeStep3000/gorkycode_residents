@@ -1,3 +1,5 @@
+# db/models.py
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -14,7 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.db.base import Base
+from db.base import Base
 
 
 # ============================
@@ -39,11 +41,6 @@ class Executor(Base):
     complaints: Mapped[List["Complaint"]] = relationship(
         back_populates="executor",
         foreign_keys="Complaint.executor_id",
-    )
-
-    TicketStatus: Mapped[List["TicketStatus"]] = relationship(
-        back_populates="executor",
-        foreign_keys="TicketStatus.executor_id",
     )
 
 
@@ -75,7 +72,6 @@ class Complaint(Base):
     )
 
     status: Mapped[str] = mapped_column(String(50), nullable=False)
-    address: Mapped[str] = mapped_column(String(100), nullable=False)
 
     executor_id: Mapped[Optional[int]] = mapped_column(
         BigInteger,
@@ -142,7 +138,7 @@ class Moderator(Base):
 
 
 class TicketStatus(Base):
-    __tablename__ = "TicketStatus"
+    __tablename__ = "ticket_statuses"
 
     # составной первичный ключ: status_code + complaint_id + data
     status_code: Mapped[str] = mapped_column(
@@ -159,11 +155,6 @@ class TicketStatus(Base):
         primary_key=True,
         default=datetime.utcnow,  # naive datetime
     )
-    executor_id: Mapped[Optional[int]] = mapped_column(
-        BigInteger,
-        ForeignKey("executors.executor_id"),
-        nullable=True,
-    )
 
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -172,9 +163,4 @@ class TicketStatus(Base):
 
     complaint: Mapped["Complaint"] = relationship(
         back_populates="ticket_statuses",
-    )
-
-    executor: Mapped[Optional["Executor"]] = relationship(
-        back_populates="complaints",
-        foreign_keys=[executor_id],
     )

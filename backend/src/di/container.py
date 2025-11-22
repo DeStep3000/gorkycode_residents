@@ -11,13 +11,17 @@ from src.protocols.ai import AIClientProtocol
 from src.protocols.notifier import NotifierProtocol
 from src.protocols.repo import (
     ComplaintRepositoryProtocol,
-    ComplaintHistoryRepositoryProtocol,
+    ExecutorRepositoryProtocol,
+    ModeratorRepositoryProtocol,
+    TicketStatusRepositoryProtocol,
 )
 from src.adapters.repo import (
     ComplaintRepository,
-    ComplaintHistoryRepository,
+    ModeratorRepository,
+    TicketStatusRepository,
+    ExecutorRepository,
 )
-from src.adapters.ai import DummyAIClient
+from src.adapters.ai import YandexAIClient
 
 from src.services.complaints import ComplaintService
 
@@ -28,10 +32,16 @@ class AppProvider(Provider):
     complaints_repo = provide(
         source=ComplaintRepository, provides=ComplaintRepositoryProtocol
     )
-    complaints_history_repo = provide(
-        source=ComplaintHistoryRepository, provides=ComplaintHistoryRepositoryProtocol
+    executor_repo = provide(
+        source=ExecutorRepository, provides=ExecutorRepositoryProtocol
     )
-    ai_adapter = provide(source=DummyAIClient, provides=AIClientProtocol)
+    moderator_repo = provide(
+        source=ModeratorRepository, provides=ModeratorRepositoryProtocol
+    )
+    ticket_repo = provide(
+        source=TicketStatusRepository, provides=TicketStatusRepositoryProtocol
+    )
+    ai_adapter = provide(source=YandexAIClient, provides=AIClientProtocol)
     notifier_adapter = provide(source=DummyNotifier, provides=NotifierProtocol)
 
     complaints_service = provide(ComplaintService)

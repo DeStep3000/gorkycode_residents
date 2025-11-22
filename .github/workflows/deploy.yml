@@ -1,0 +1,50 @@
+name: "Gorky Residents Backend"
+
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend-master
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📂 Checkout"
+        uses: actions/checkout@v4
+
+      - name: "🔐 SSH deploy backend"
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            DEPLOY_DIR="${{ vars.DEPLOY_DIR }}"
+
+            echo "Deploying backend to: $DEPLOY_DIR"
+            cd "$DEPLOY_DIR"
+
+            # --- Обновляем код ---
+            git fetch --all --prune
+            git checkout master
+            git reset --hard origin/master
+
+            # --- Обновляем .env ---
+            cat > backend/.env << 'EOF'
+            YC_API_KEY=${{ secrets.YC_API_KEY }}
+            YC_FOLDER_ID=${{ secrets.YC_FOLDER_ID }}
+            YC_MODEL=${{ secrets.YC_MODEL }}
+            EOF
+
+            echo "Updated .env with Yandex Cloud credentials"
+
+            # --- Пересобираем через docker-compose / make ---
+            make up
