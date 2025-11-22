@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>История изменений заявки</title>
+
+    <!-- Шрифт Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="layout">
+
+    <!-- Левое меню такое же, как на главной -->
+    <aside class="sidebar">
+        <div class="sidebar__header">
+            <div class="sidebar__logo"></div>
+            <div class="sidebar__title">
+                <div class="sidebar__title-main">Аналитический центр города</div>
+                <div class="sidebar__title-status">Онлайн</div>
+            </div>
+        </div>
+
+        <nav class="sidebar__nav">
+            <a href="index.html" class="sidebar__nav-item">Все заявки</a>
+            <a href="#" class="sidebar__nav-item sidebar__nav-item--active">Сообщения</a>
+            <a href="#" class="sidebar__nav-item">Статистика</a>
+        </nav>
+    </aside>
+
+    <!-- Правая часть -->
+    <div class="main">
+        <header class="topbar">
+            <button class="topbar__menu-btn">
+                <span></span><span></span><span></span>
+            </button>
+
+            <div class="topbar__spacer"></div>
+
+            <button class="notification-bell" aria-label="Уведомления">
+                <span class="notification-bell__icon">🔔</span>
+            </button>
+        </header>
+
+        <main class="main-content">
+            <div class="page-header-row">
+                <h1 class="page-title">Сообщения</h1>
+                <button class="page-header-row__link">Показать</button>
+            </div>
+
+            <!-- Карточка сообщения -->
+            <section class="card card--accent">
+                <div class="card__header-row">
+                    <div class="card__title">Карточка сообщения</div>
+                </div>
+                <div class="card__form-row">
+                    <label for="complaint-id-input" class="card__label">Id</label>
+                    <input id="complaint-id-input" class="card__input" type="text" readonly>
+                </div>
+            </section>
+
+            <!-- Вкладки -->
+            <section class="tabs">
+                <button class="tabs__item">Подробно</button>
+                <button class="tabs__item">Адрес</button>
+                <button class="tabs__item">Комментарии (0)</button>
+                <button class="tabs__item">Обработка</button>
+                <button class="tabs__item tabs__item--active">История изменений</button>
+            </section>
+
+            <!-- История изменений -->
+            <section class="card card--history">
+                <div class="history-table__header">
+                    <div class="history-table__cell history-table__cell--date">Дата</div>
+                    <div class="history-table__cell history-table__cell--author">Автор</div>
+                    <div class="history-table__cell history-table__cell--changed">Изменено</div>
+                </div>
+
+                <div id="history-list" class="history-list">
+                    <!-- history.js добавит сюда записи -->
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<script src="history.js"></script>
+</body>
+</html>

@@ -329,6 +329,23 @@ async def get_moderator(
         complaint_id=moderator.complaint_id,
     )
 
+@router.get("/statuses/complaint_id")
+@inject
+async def get_statuses(
+    complaint_id: int, db: SessionDep, complaint_service: FromDishka[ComplaintService],
+):
+    statuses = await complaint_service.get_ticket_status(db, complaint_id)
+    if not statuses:
+        raise HTTPException(status_code=404, detail="Moderator not found")
+    return [TicketStatusDTO(
+        status_code=status.status_code,
+        complaint_id=status.complaint_id,
+        data=status.data,
+        executor_id=status.executor_id,
+        sort_order=status.sort_order,
+        description=status.description,
+    ) for status in statuses]
+
 
 @router.put("/moderators/{moderator_id}")
 @inject
