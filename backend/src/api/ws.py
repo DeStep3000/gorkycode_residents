@@ -31,4 +31,4 @@ async def send_notification_to_clients(message: dict):
     # Преобразуем сообщение в JSON строку
     message_json =  json.dumps(message)
     for connection in active_connections:
-        await connection.send_text(message)
+        await connection.send_text(message_json)
