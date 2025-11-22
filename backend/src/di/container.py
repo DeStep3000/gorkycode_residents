@@ -6,9 +6,7 @@ from dishka import (
 )
 from dishka.integrations.fastapi import FastapiProvider
 
-from src.adapters.notifier import DummyNotifier
 from src.protocols.ai import AIClientProtocol
-from src.protocols.notifier import NotifierProtocol
 from src.protocols.repo import (
     ComplaintRepositoryProtocol,
     ExecutorRepositoryProtocol,
@@ -42,7 +40,6 @@ class AppProvider(Provider):
         source=TicketStatusRepository, provides=TicketStatusRepositoryProtocol
     )
     ai_adapter = provide(source=YandexAIClient, provides=AIClientProtocol)
-    notifier_adapter = provide(source=DummyNotifier, provides=NotifierProtocol)
 
     complaints_service = provide(ComplaintService)
 
