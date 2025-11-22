@@ -1,16 +1,18 @@
 # app/services/complaints.py
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.protocols.repo import (
+from src.adapters.repo import (
     ComplaintRepositoryProtocol,
-    ComplaintHistoryRepositoryProtocol,
+    ExecutorRepositoryProtocol,
+    ModeratorRepositoryProtocol,
+    TicketStatusRepositoryProtocol,
 )
-from src.protocols.ai import AIClientProtocol
-from src.protocols.notifier import NotifierProtocol
-from src.db.models import ComplaintStatus
-from src.schemas.complaint import ComplaintCreate, ComplaintUpdate
+from src.adapters.ai import AIClientProtocol
+from src.adapters.notifier import NotifierProtocol
+from src.schemas.complaint import ComplaintStatus
 from src.schemas.executor_update import ExecutorUpdateRequest
 
 
@@ -18,28 +20,50 @@ class ComplaintService:
     def __init__(
         self,
         complaint_repo: ComplaintRepositoryProtocol,
-        history_repo: ComplaintHistoryRepositoryProtocol,
+        executor_repo: ExecutorRepositoryProtocol,
+        moderator_repo: ModeratorRepositoryProtocol,
+        ticket_status_repo: TicketStatusRepositoryProtocol,
         ai_client: AIClientProtocol,
         notifier: NotifierProtocol,
     ):
         self._complaint_repo = complaint_repo
-        self._history_repo = history_repo
+        self._executor_repo = executor_repo
+        self._moderator_repo = moderator_repo
+        self._ticket_status_repo = ticket_status_repo
         self._ai_client = ai_client
         self._notifier = notifier
+
+    # ============================
+    # CRUD для Complaint
+    # ============================
 
     async def create_complaint(
         self,
         session: AsyncSession,
-        data: ComplaintCreate,
+        description: str,
+        district: Optional[str] = None,
+        status: ComplaintStatus = ComplaintStatus.NEW,
+        executor_id: Optional[int] = None,
+        address: str = "",
     ):
         complaint = await self._complaint_repo.create_complaint(
             session,
-            description=data.description,
-            district=data.district,
-            executor_id=data.executor_id,
+            description=description,
+            district=district,
+            status=status.value,  # Преобразуем статус в строку
+            executor_id=executor_id,
+            address=address,
         )
-        # создаём пустую историю
-        await self._history_repo.get_or_create_history(session, complaint.complaint_id)
+        # Создаем начальный статус для заявки
+        await self._ticket_status_repo.create_ticket_status(
+            session,
+            complaint_id=complaint.complaint_id,
+            status_code=status.value,
+            sort_order=1,
+            description="Заявка создана",
+            executor_id=executor_id,
+        )
+
         await session.commit()
         await session.refresh(complaint)
         return complaint
@@ -58,33 +82,126 @@ class ComplaintService:
         self,
         session: AsyncSession,
         complaint_id: int,
-        data: ComplaintUpdate,
+        status: Optional[ComplaintStatus] = None,
+        resolution: Optional[str] = None,
+        executor_id: Optional[int] = None,
+        address: Optional[str] = None,
     ):
         complaint = await self._complaint_repo.get_complaint(session, complaint_id)
         if complaint is None:
             return None
 
-        if data.status is not None:
-            complaint.status = data.status.value
-        if data.resolution is not None:
-            complaint.resolution = data.resolution
-        if data.executor_id is not None:
-            complaint.executor_id = data.executor_id
-        if data.execution_date is not None:
-            complaint.execution_date = data.execution_date
-        if data.final_status_at is not None:
-            complaint.final_status_at = data.final_status_at
+        # Обновляем поля
+        if status is not None:
+            complaint.status = status.value
+        if resolution is not None:
+            complaint.resolution = resolution
+        if executor_id is not None:
+            complaint.executor_id = executor_id
+        if address is not None:
+            complaint.address = address
 
         await self._complaint_repo.update_complaint(session, complaint)
         await session.commit()
         await session.refresh(complaint)
+
+        if status is not None:
+            # Обновляем статус в TicketStatus
+            await self._ticket_status_repo.create_ticket_status(
+                session,
+                complaint_id=complaint_id,
+                status_code=status.value if status else complaint.status,
+                sort_order=2,  # следующий статус
+                description=resolution if resolution else "Обновлено",
+                executor_id=executor_id,
+            )
+
         return complaint
 
-    async def get_history(self, session: AsyncSession, complaint_id: int):
-        history = await self._history_repo.get_or_create_history(session, complaint_id)
-        await session.commit()
-        await session.refresh(history)
-        return history
+    async def delete_complaint(self, session: AsyncSession, complaint_id: int):
+        await self._complaint_repo.delete_complaint(session, complaint_id)
+
+    # ============================
+    # CRUD для Executor
+    # ============================
+
+    async def create_executor(
+        self,
+        session: AsyncSession,
+        name: str,
+        organization: Optional[str],
+        phone: Optional[str],
+        email: Optional[str],
+    ):
+        return await self._executor_repo.create_executor(
+            session, name, organization, phone, email
+        )
+
+    async def get_executor(self, session: AsyncSession, executor_id: int):
+        return await self._executor_repo.get_executor(session, executor_id)
+
+    async def get_executor_by_name(
+        self, session: AsyncSession, name: str
+    ) -> Optional[ExecutorUpdateRequest]:
+        executor = await self._executor_repo.get_executor_by_name(session, name)
+        if not executor:
+            return None
+        return executor
+
+    async def update_executor(
+        self,
+        session: AsyncSession,
+        executor_id: int,
+        name: Optional[str],
+        organization: Optional[str],
+        phone: Optional[str],
+        email: Optional[str],
+    ):
+        return await self._executor_repo.update_executor(
+            session, executor_id, name, organization, phone, email
+        )
+
+    async def delete_executor(self, session: AsyncSession, executor_id: int):
+        await self._executor_repo.delete_executor(session, executor_id)
+
+    # ============================
+    # CRUD для Moderator
+    # ============================
+
+    async def create_moderator(
+        self,
+        session: AsyncSession,
+        username: str,
+        full_name: str,
+        email: Optional[str],
+        phone: Optional[str],
+    ):
+        return await self._moderator_repo.create_moderator(
+            session, username, full_name, email, phone
+        )
+
+    async def get_moderator(self, session: AsyncSession, moderator_id: int):
+        return await self._moderator_repo.get_moderator(session, moderator_id)
+
+    async def update_moderator(
+        self,
+        session: AsyncSession,
+        moderator_id: int,
+        username: Optional[str],
+        full_name: Optional[str],
+        email: Optional[str],
+        phone: Optional[str],
+    ):
+        return await self._moderator_repo.update_moderator(
+            session, moderator_id, username, full_name, email, phone
+        )
+
+    async def delete_moderator(self, session: AsyncSession, moderator_id: int):
+        await self._moderator_repo.delete_moderator(session, moderator_id)
+
+    # ============================
+    # Обработка запроса от Executor
+    # ============================
 
     async def handle_executor_update(
         self,
@@ -96,55 +213,99 @@ class ComplaintService:
         if complaint is None:
             return None
 
-        history = await self._history_repo.get_or_create_history(session, complaint_id)
-
-        # Обновляем историю
-        if update.executor_id not in history.executors_ids:
-            history.executors_ids.append(update.executor_id)
-
-        history.responses.setdefault(update.executor_id, {})
-        history.responses[update.executor_id] = {
-            "response": update.response_text,
-            "status": update.status,
-            "executed_at": (update.executed_at or datetime.utcnow()).isoformat(),
-        }
-
-        await self._history_repo.update_history(session, history)
-
-        # Запускаем ИИ-анализ
+        # Запускаем анализ с помощью ИИ
         ai_result = await self._ai_client.analyze_executor_response(
             complaint_description=complaint.description,
             update=update,
         )
 
-        # 1. Если понятно, кому перенаправить – переназначаем исполнителя и ставим статус REDIRECTED
-        if ai_result.is_forward and ai_result.target_executor_id:
-            complaint.executor_id = ai_result.target_executor_id
-            complaint.status = ComplaintStatus.REDIRECTED.value
+        # Логика перенаправления заявки или закрытия
 
-        # 2. Ясно, что заявку отфутболили, но непонятно куда – блокируем, уведомляем админку
+        if ai_result.is_forward and ai_result.target_executor_name:
+            # Перенаправляем заявку другому исполнителю
+            complaint.executor_id = await self._executor_repo.get_executor_by_name(
+                session, ai_result.target_executor_name
+            )
+            complaint.status = ComplaintStatus.ASSIGNED_RESPONSIBLE.value
+
+            # Создаем новую запись в ticket_status
+            await self._ticket_status_repo.create_ticket_status(
+                session,
+                complaint_id=complaint.complaint_id,
+                status_code=ComplaintStatus.ASSIGNED_RESPONSIBLE.value,
+                sort_order=2,  # следующий статус
+                description="Задача перенаправлена исполнителю",
+                executor_id=ai_result.target_executor_id,
+            )
         elif ai_result.is_blocking_bounce:
-            complaint.status = ComplaintStatus.BLOCKED.value
+            # Если задача не может быть выполнена (отфутболена), блокируем заявку
+            complaint.status = ComplaintStatus.BLOCK_WORKFLOW.value
             complaint.final_status_at = datetime.utcnow()
             await self._notifier.notify_blocked_complaint(
                 complaint_id=complaint.complaint_id,
                 reason=ai_result.notes or "executor bounced request without target",
             )
-
-        # 3. Обычная заявка – просто обновляем финальное состояние
         else:
-            complaint.resolution = update.response_text
-            if update.executed_at:
-                complaint.execution_date = update.executed_at
-            complaint.status = (
-                ComplaintStatus.IN_PROGRESS.value
-                if (update.status or "").lower() != "done"
-                else ComplaintStatus.COMPLETED.value
-            )
-            if complaint.status == ComplaintStatus.COMPLETED.value:
-                complaint.final_status_at = datetime.utcnow()
+            # Если все хорошо, отправляем на статус "MODERATED"
+            complaint.status = ComplaintStatus.MODERATED.value
 
+            # Создаем новую запись в ticket_status
+            await self._ticket_status_repo.create_ticket_status(
+                session,
+                complaint_id=complaint.complaint_id,
+                status_code=ComplaintStatus.MODERATED.value,
+                sort_order=2,  # следующий статус
+                description="Задача отправлена на модерацию",
+                executor_id=update.executor_id,
+            )
+
+        # Обновляем жалобу в базе данных
         await self._complaint_repo.update_complaint(session, complaint)
         await session.commit()
         await session.refresh(complaint)
+
         return complaint
+
+    # ============================
+    # CRUD для TicketStatus
+    # ============================
+
+    async def create_ticket_status(
+        self,
+        session: AsyncSession,
+        complaint_id: int,
+        status_code: str,
+        sort_order: int,
+        description: Optional[str],
+        executor_id: Optional[int],
+    ):
+        return await self._ticket_status_repo.create_ticket_status(
+            session, complaint_id, status_code, sort_order, description, executor_id
+        )
+
+    async def get_ticket_status(
+        self, session: AsyncSession, complaint_id: int, status_code: str, data: datetime
+    ):
+        return await self._ticket_status_repo.get_ticket_status(
+            session, complaint_id, status_code, data
+        )
+
+    async def update_ticket_status(
+        self,
+        session: AsyncSession,
+        complaint_id: int,
+        status_code: str,
+        description: Optional[str],
+        sort_order: int,
+        executor_id: Optional[int],
+    ):
+        return await self._ticket_status_repo.update_ticket_status(
+            session, complaint_id, status_code, description, sort_order, executor_id
+        )
+
+    async def delete_ticket_status(
+        self, session: AsyncSession, complaint_id: int, status_code: str, data: datetime
+    ):
+        await self._ticket_status_repo.delete_ticket_status(
+            session, complaint_id, status_code, data
+        )
