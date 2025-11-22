@@ -18,7 +18,7 @@ class ComplaintCreate(BaseModel):
     description: str
     district: str | None = None
     status: ComplaintStatus
-    executor_id: str | None = None
+    executor_id: int | None = None
     address: str
 
 

@@ -113,8 +113,8 @@ class TicketStatusRepositoryProtocol(Protocol):
     ) -> TicketStatus: ...
 
     async def get_ticket_status(
-        self, session: AsyncSession, complaint_id: int, status_code: str, data: datetime
-    ) -> Optional[TicketStatus]: ...
+        self, session: AsyncSession, complaint_id: int,
+    ) -> List[TicketStatus]: ...
 
     async def update_ticket_status(
         self,

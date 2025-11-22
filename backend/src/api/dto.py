@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 class ExecutorDTO(BaseModel):
     executor_id: int
-    name: int
-    organization: int | None
+    name: str
+    organization: str | None
     phone: str | None
     email: str | None
     is_active: bool
@@ -40,3 +40,13 @@ class ModeratorDTO(BaseModel):
     is_active: bool
 
     complaint_id: int | None
+
+
+class TicketStatusDTO(BaseModel):
+    status_code: str
+    complaint_id: int
+    data: datetime
+    executor_id: int | None
+
+    sort_order: int
+    description: str | None
