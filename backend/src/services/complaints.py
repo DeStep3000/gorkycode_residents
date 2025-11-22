@@ -234,8 +234,8 @@ class ComplaintService:
                 complaint_id=complaint.complaint_id,
                 status_code=ComplaintStatus.ASSIGNED_RESPONSIBLE.value,
                 sort_order=2,  # следующий статус
-                description="Задача перенаправлена исполнителю",
-                executor_id=ai_result.target_executor_id,
+                description=update.response_text,
+                executor_id=complaint.executor_id,
             )
         elif ai_result.is_blocking_bounce:
             # Если задача не может быть выполнена (отфутболена), блокируем заявку
@@ -243,7 +243,7 @@ class ComplaintService:
             complaint.final_status_at = datetime.utcnow()
             await self._notifier.notify_blocked_complaint(
                 complaint_id=complaint.complaint_id,
-                reason=ai_result.notes or "executor bounced request without target",
+                reason="executor bounced request without target",
             )
         else:
             # Если все хорошо, отправляем на статус "MODERATED"
@@ -255,12 +255,17 @@ class ComplaintService:
                 complaint_id=complaint.complaint_id,
                 status_code=ComplaintStatus.MODERATED.value,
                 sort_order=2,  # следующий статус
-                description="Задача отправлена на модерацию",
-                executor_id=update.executor_id,
+                description=update.response_text,
+                executor_id=complaint.executor_id,
             )
 
         # Обновляем жалобу в базе данных
-        await self._complaint_repo.update_complaint(session, complaint)
+        await self._complaint_repo.update_complaint(session,
+                                                    complaint.complaint_id,
+                                                    complaint.status,
+                                                    complaint.resolution,
+                                                    complaint.executor_id,
+                                                    complaint.address,)
         await session.commit()
         await session.refresh(complaint)
 
@@ -284,10 +289,10 @@ class ComplaintService:
         )
 
     async def get_ticket_status(
-        self, session: AsyncSession, complaint_id: int, status_code: str, data: datetime
+        self, session: AsyncSession, complaint_id: int
     ):
         return await self._ticket_status_repo.get_ticket_status(
-            session, complaint_id, status_code, data
+            session, complaint_id
         )
 
     async def update_ticket_status(
