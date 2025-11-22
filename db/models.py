@@ -23,6 +23,7 @@ from db.base import Base
 # EXECUTORS
 # ============================
 
+
 class Executor(Base):
     __tablename__ = "executors"
 
@@ -47,6 +48,7 @@ class Executor(Base):
 # COMPLAINTS
 # ============================
 
+
 class Complaint(Base):
     __tablename__ = "complaints"
 
@@ -57,7 +59,7 @@ class Complaint(Base):
     # В БД TIMESTAMP WITHOUT TIME ZONE → timezone=False (по умолчанию)
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,   # возвращает naive datetime
+        default=datetime.utcnow,  # возвращает naive datetime
         nullable=False,
     )
     execution_date: Mapped[Optional[datetime]] = mapped_column(
@@ -103,6 +105,7 @@ class Complaint(Base):
 # MODERATORS
 # ============================
 
+
 class Moderator(Base):
     __tablename__ = "moderators"
 
@@ -133,6 +136,7 @@ class Moderator(Base):
 # TICKETSTATUSES
 # ============================
 
+
 class TicketStatus(Base):
     __tablename__ = "ticket_statuses"
 
@@ -149,7 +153,7 @@ class TicketStatus(Base):
     data: Mapped[datetime] = mapped_column(
         DateTime,
         primary_key=True,
-        default=datetime.utcnow,   # naive datetime
+        default=datetime.utcnow,  # naive datetime
     )
 
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)

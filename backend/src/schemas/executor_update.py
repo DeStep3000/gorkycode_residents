@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class ExecutorUpdateRequest(BaseModel):
-    executor_id: str
+    executor_id: int
     response_text: str
     status: Optional[str] = None  # например, "done", "in_progress" и т.д.
     executed_at: Optional[datetime] = None

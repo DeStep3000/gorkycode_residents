@@ -8,8 +8,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from openai import OpenAI
 from src.protocols.ai import AIClientProtocol
-from src.schemas.executor_update import (ExecutorUpdateRequest,
-                                         ExecutorUpdateResult)
+from src.schemas.executor_update import ExecutorUpdateRequest, ExecutorUpdateResult
 
 # Загружаем переменные окружения из .env (локальная разработка)
 load_dotenv()
