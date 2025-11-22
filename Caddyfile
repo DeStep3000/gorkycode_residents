@@ -1,0 +1,4 @@
+lbchresidents.ru, www.lbchresidents.ru {
+    encode gzip zstd
+    reverse_proxy frontend:4173
+}
