@@ -61,7 +61,7 @@ class ModerationDashboard {
         <div class="sidebar">
           <div class="sidebar-header">
             <div class="sidebar-title">Аналитический цент...</div>
-            <div class="sidebar-subtitle">Силайн</div>
+            <div class="sidebar-subtitle">Онлайн</div>
           </div>
 
           <nav class="sidebar-menu">
@@ -402,6 +402,68 @@ class ModerationDashboard {
     const sidebar = document.querySelector('.sidebar');
     sidebar.classList.toggle('sidebar-collapsed');
   }
+
+  setupScroll() {
+      let lastScrollTop = 0;
+      const header = document.querySelector('.header');
+
+      window.addEventListener('scroll', () => {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+        if (scrollTop > 50) {
+          // При скролле добавляем компактный стиль
+          header.classList.add('header-scrolled');
+        } else {
+          // В верхней части страницы - обычный стиль
+          header.classList.remove('header-scrolled');
+        }
+
+        lastScrollTop = scrollTop;
+      });
+    }
+    renderNotifications() {
+    if (this.notifications.length === 0) {
+      return '<div class="no-notifications">Нет новых уведомлений</div>';
+    }
+
+    return this.notifications.map(notification => {
+      const statusClass = this.getNotificationStatusClass(notification.type);
+      const statusText = this.getNotificationStatusText(notification.type);
+
+      return `
+        <div class="notification-item ${notification.read ? 'read' : 'unread'}" data-id="${notification.id}">
+          <div class="notification-dot"></div>
+          <div class="notification-content">
+            <div class="notification-message">
+              ${notification.message.replace(statusText, `<span class="status-highlight ${statusClass}">${statusText}</span>`)}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // И ЭТИ ДВА ВСПОМОГАТЕЛЬНЫХ МЕТОДА:
+  getNotificationStatusClass(type) {
+    const statusClasses = {
+      'redirected': 'status-redirected',
+      'moderation': 'status-moderation',
+      'stopped': 'status-rejected',
+      'approved': 'status-approved'
+    };
+    return statusClasses[type] || 'status-moderation';
+  }
+
+  getNotificationStatusText(type) {
+    const statusTexts = {
+      'redirected': 'перенаправлена ИИ',
+      'moderation': 'требует модерации',
+      'stopped': 'остановлена ИИ',
+      'approved': 'одобрена'
+    };
+    return statusTexts[type] || 'требует модерации';
+  }
+
 }
 
 // Initialize the application when DOM is loaded

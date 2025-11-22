@@ -41,7 +41,7 @@ class ApplicationDetail {
         <div class="sidebar">
           <div class="sidebar-header">
             <div class="sidebar-title">Аналитический цент...</div>
-            <div class="sidebar-subtitle">Силайн</div>
+            <div class="sidebar-subtitle">Онлайн</div>
           </div>
 
           <nav class="sidebar-menu">
@@ -361,6 +361,25 @@ class ApplicationDetail {
     const sidebar = document.querySelector('.sidebar');
     sidebar.classList.toggle('sidebar-collapsed');
   }
+
+  setupScroll() {
+      let lastScrollTop = 0;
+      const header = document.querySelector('.header');
+
+      window.addEventListener('scroll', () => {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+        if (scrollTop > 50) {
+          // При скролле добавляем компактный стиль
+          header.classList.add('header-scrolled');
+        } else {
+          // В верхней части страницы - обычный стиль
+          header.classList.remove('header-scrolled');
+        }
+
+        lastScrollTop = scrollTop;
+      });
+    }
 }
 
 // Initialize application detail when DOM is loaded
