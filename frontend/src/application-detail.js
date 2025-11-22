@@ -1,16 +1,162 @@
 import './style.css';
 
+import './style.css';
+import apiService from './api-service.js';
+
 class ApplicationDetail {
   constructor(applicationId) {
     this.applicationId = applicationId;
-    this.historyData = this.generateHistoryData();
+    this.complaintData = null;
+    this.historyData = [];
     this.init();
   }
 
-  init() {
+  async init() {
+    await this.loadApplicationData();
     this.createLayout();
     this.renderHistory();
     this.addEventListeners();
+  }
+
+  async loadApplicationData() {
+    try {
+      // Пробуем получить данные из sessionStorage
+      const cachedData = sessionStorage.getItem(`app_${this.applicationId}`);
+
+      if (cachedData) {
+        const parsedData = JSON.parse(cachedData);
+        this.complaintData = parsedData.complaint;
+        this.historyData = parsedData.history;
+      } else {
+        // Загружаем с бэкенда
+        this.complaintData = await apiService.getComplaint(this.applicationId);
+        this.historyData = await apiService.getComplaintStatuses(this.applicationId);
+      }
+
+    } catch (error) {
+      console.error('Error loading application data:', error);
+      this.showError('Ошибка загрузки данных заявки');
+    }
+  }
+
+  generateHistoryData() {
+    if (!this.historyData || this.historyData.length === 0) {
+      return this.generateFallbackHistory();
+    }
+
+    return this.historyData.map((status, index) => ({
+      id: status.content_id || index,
+      date: status.data || new Date().toISOString(),
+      author: status.user_keyder ? `Пользователь ${status.user_keyder}` : 'Система',
+      changes: [
+        {
+          type: 'status',
+          from: this.getStatusInfo(status.previous_status),
+          to: this.getStatusInfo(status.status_code)
+        }
+      ]
+    }));
+  }
+
+  getStatusInfo(statusCode) {
+    const statusMap = {
+      'new': { label: 'Новая', colorClass: 'gray' },
+      'modernized': { label: 'На модерации', colorClass: 'orange' },
+      'black_workflow': { label: 'Перенаправлена ИИ', colorClass: 'green' },
+      'initial_sum': { label: 'Первичная обработка', colorClass: 'blue' },
+      'completed': { label: 'Завершена', colorClass: 'green' },
+      'rejected': { label: 'Отклонена', colorClass: 'red' }
+    };
+
+    return statusMap[statusCode] || { label: statusCode, colorClass: 'gray' };
+  }
+
+  generateFallbackHistory() {
+    // Возвращаем заглушку, если нет данных с бэкенда
+    return [
+      {
+        id: 1,
+        date: new Date().toISOString(),
+        author: 'Система',
+        changes: [
+          {
+            type: 'status',
+            from: { label: 'Новая', colorClass: 'gray' },
+            to: { label: 'На модерации', colorClass: 'orange' }
+          }
+        ]
+      }
+    ];
+  }
+
+  // Обновляем метод createLayout для отображения реальных данных
+  createLayout() {
+    const app = document.getElementById('app');
+
+    app.innerHTML = `
+      <div class="wireframe">
+        <!-- Шапка и сайдбар без изменений -->
+
+        <div class="main-content">
+          <div class="content-header">
+            <h1>Сообщения</h1>
+            <div class="application-header-card">
+              <div class="card-title">Карточка сообщения</div>
+              <div class="id-section">
+                <span class="id-label">Id</span>
+                <div class="id-input-container">
+                  <span class="id-value">${this.applicationId}</span>
+                </div>
+              </div>
+              ${this.complaintData ? `
+                <div class="complaint-details">
+                  <div class="detail-row">
+                    <span class="detail-label">Адрес:</span>
+                    <span class="detail-value">${this.complaintData.address || 'Не указан'}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Описание:</span>
+                    <span class="detail-value">${this.complaintData.description || 'Нет описания'}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Текущий статус:</span>
+                    <span class="detail-value status-${this.mapBackendStatus(this.complaintData.status)}">
+                      ${this.getStatusText(this.mapBackendStatus(this.complaintData.status))}
+                    </span>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Остальная разметка без изменений -->
+        </div>
+      </div>
+    `;
+  }
+
+  mapBackendStatus(backendStatus) {
+    const statusMap = {
+      'new': 'moderation',
+      'modernized': 'moderation',
+      'black_workflow': 'redirected',
+      'initial_sum': 'moderation',
+      'completed': 'approved',
+      'rejected': 'rejected'
+    };
+
+    return statusMap[backendStatus] || 'moderation';
+  }
+
+  getStatusText(status) {
+    const statusTexts = {
+      'moderation': 'Нужна модерация',
+      'redirected': 'Перенаправлена ИИ',
+      'approved': 'Одобрена',
+      'rejected': 'Отклонена'
+    };
+
+    return statusTexts[status] || 'Неизвестный статус';
   }
 
   createLayout() {
@@ -41,7 +187,7 @@ class ApplicationDetail {
         <div class="sidebar">
           <div class="sidebar-header">
             <div class="sidebar-title">Аналитический цент...</div>
-            <div class="sidebar-subtitle">Силайн</div>
+            <div class="sidebar-subtitle">Онлайн</div>
           </div>
 
           <nav class="sidebar-menu">

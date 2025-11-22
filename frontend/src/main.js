@@ -1,33 +1,189 @@
 import './style.css';
+import apiService from './api_service.js';
 
 class ModerationDashboard {
   constructor() {
-    this.applications = [
-      { id: '122739', status: 'moderation', position: 210 },
-      { id: '122738', status: 'moderation', position: 87 },
-      { id: '123003', status: 'moderation', position: 333 },
-      { id: '122711', status: 'moderation', position: 579 },
-      { id: '122710', status: 'moderation', position: 456 },
-      { id: '122291', status: 'redirected', position: 702 }, // Заявка с перенаправлением ИИ
-      { id: '123456', status: 'moderation', position: 948 },
-      { id: '122555', status: 'moderation', position: 825 }
-    ];
-
-    this.notifications = [
-      { id: 1, applicationId: '122291', type: 'redirected', message: 'Заявка №122291 перенаправлена ИИ', read: false },
-      { id: 2, applicationId: '123191', type: 'stopped', message: 'Заявка №123191 остановлена ИИ', read: false },
-      { id: 3, applicationId: '101239', type: 'redirected', message: 'Заявка №101239 перенаправлена ИИ', read: false },
-      { id: 4, applicationId: '111029', type: 'redirected', message: 'Заявка №111029 перенаправлена ИИ', read: false }
-    ];
+    this.applications = [];
+    this.notifications = [];
+    this.isLoading = false;
 
     this.init();
   }
 
-  init() {
+  async init() {
+    await this.loadData();
     this.createLayout();
     this.renderApplications();
     this.addEventListeners();
     this.setupScroll();
+  }
+
+  async loadData() {
+    this.isLoading = true;
+    try {
+      // Загружаем жалобы с бэкенда
+      const complaintsData = await apiService.getComplaints();
+      this.applications = this.transformComplaintsData(complaintsData);
+
+      // Загружаем уведомления (можно адаптировать под ваш бэкенд)
+      this.notifications = await this.loadNotifications();
+
+    } catch (error) {
+      console.error('Error loading data:', error);
+      this.showError('Ошибка загрузки данных');
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  transformComplaintsData(complaintsData) {
+    // Преобразуем данные бэкенда в формат фронтенда
+    if (!complaintsData || !Array.isArray(complaintsData)) {
+      return [];
+    }
+
+    return complaintsData.map((complaint, index) => ({
+      id: complaint.complaint_id?.toString() || `temp_${index}`,
+      status: this.mapBackendStatus(complaint.status),
+      position: index * 120 + 100, // Динамическая позиция
+      backendData: complaint // Сохраняем оригинальные данные
+    }));
+  }
+
+  mapBackendStatus(backendStatus) {
+    const statusMap = {
+      'new': 'moderation',
+      'modernized': 'moderation',
+      'black_workflow': 'redirected',
+      'initial_sum': 'moderation',
+      'completed': 'approved',
+      'rejected': 'rejected'
+    };
+
+    return statusMap[backendStatus] || 'moderation';
+  }
+
+  async loadNotifications() {
+    try {
+      // Пример загрузки уведомлений с бэкенда
+      // В реальности нужно создать соответствующий эндпоинт
+      const statuses = await apiService.getStatusesByTemplate();
+
+      return statuses.map(status => ({
+        id: status.content_id,
+        applicationId: status.compilation_id?.toString(),
+        type: 'status_update',
+        message: status.description || 'Обновление статуса',
+        read: false,
+        date: status.data
+      }));
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      return [];
+    }
+  }
+
+  async handleApplicationClick(applicationId) {
+    try {
+      // Загружаем детальную информацию о жалобе
+      const complaintDetail = await apiService.getComplaint(applicationId);
+      const statusHistory = await apiService.getComplaintStatuses(applicationId);
+
+      // Переходим на страницу деталей
+      this.navigateToApplicationDetail(applicationId, {
+        complaint: complaintDetail,
+        history: statusHistory
+      });
+
+    } catch (error) {
+      console.error('Error loading application details:', error);
+      this.showError('Ошибка загрузки деталей заявки');
+    }
+  }
+
+  navigateToApplicationDetail(applicationId, data = null) {
+    if (data) {
+      // Сохраняем данные в sessionStorage для передачи на страницу деталей
+      sessionStorage.setItem(`app_${applicationId}`, JSON.stringify(data));
+    }
+
+    window.location.href = `application-detail.html?id=${applicationId}`;
+  }
+
+  // Добавляем метод для обновления статуса
+  async updateApplicationStatus(applicationId, newStatus) {
+    try {
+      const statusData = {
+        status: this.mapFrontendStatusToBackend(newStatus),
+        final_status_at: new Date().toISOString()
+      };
+
+      await apiService.updateComplaintStatus(applicationId, statusData);
+
+      // Обновляем локальные данные
+      const appIndex = this.applications.findIndex(app => app.id === applicationId);
+      if (appIndex !== -1) {
+        this.applications[appIndex].status = newStatus;
+        this.renderApplications();
+      }
+
+      this.showSuccess('Статус успешно обновлен');
+
+    } catch (error) {
+      console.error('Error updating status:', error);
+      this.showError('Ошибка обновления статуса');
+    }
+  }
+
+  mapFrontendStatusToBackend(frontendStatus) {
+    const reverseStatusMap = {
+      'moderation': 'modernized',
+      'redirected': 'black_workflow',
+      'approved': 'completed',
+      'rejected': 'rejected'
+    };
+
+    return reverseStatusMap[frontendStatus] || 'modernized';
+  }
+
+  showError(message) {
+    // Реализация показа ошибок
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.textContent = message;
+    errorDiv.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #ff4444;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 4px;
+      z-index: 1000;
+    `;
+
+    document.body.appendChild(errorDiv);
+    setTimeout(() => errorDiv.remove(), 5000);
+  }
+
+  showSuccess(message) {
+    // Реализация показа успешных сообщений
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success-message';
+    successDiv.textContent = message;
+    successDiv.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #00C851;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 4px;
+      z-index: 1000;
+    `;
+
+    document.body.appendChild(successDiv);
+    setTimeout(() => successDiv.remove(), 5000);
   }
 
   createLayout() {
@@ -61,7 +217,7 @@ class ModerationDashboard {
         <div class="sidebar">
           <div class="sidebar-header">
             <div class="sidebar-title">Аналитический цент...</div>
-            <div class="sidebar-subtitle">Силайн</div>
+            <div class="sidebar-subtitle">Онлайн</div>
           </div>
 
           <nav class="sidebar-menu">
