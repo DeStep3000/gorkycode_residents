@@ -260,7 +260,12 @@ class ComplaintService:
             )
 
         # Обновляем жалобу в базе данных
-        await self._complaint_repo.update_complaint(session, complaint)
+        await self._complaint_repo.update_complaint(session,
+                                                    complaint.complaint_id,
+                                                    complaint.status,
+                                                    complaint.resolution,
+                                                    complaint.executor_id,
+                                                    complaint.address,)
         await session.commit()
         await session.refresh(complaint)
 
