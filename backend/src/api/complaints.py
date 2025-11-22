@@ -1,102 +1,308 @@
 # app/api/v1/complaints.py
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from dishka.integrations.fastapi import inject, FromDishka
+from fastapi import APIRouter, Depends, HTTPException
+from dishka.integrations.fastapi import FromDishka
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.dto import ExecutorDTO, ComplaintDTO, ModeratorDTO
 from src.db.session import get_session
 from src.schemas.complaint import (
     ComplaintCreate,
-    ComplaintRead,
-    ComplaintList,
     ComplaintUpdate,
-    ComplaintHistoryRead,
+    ModeratorCreate,
+    ModeratorUpdate,
 )
 from src.schemas.executor_update import ExecutorUpdateRequest
 from src.services.complaints import ComplaintService
 
-router = APIRouter(prefix="/complaints", tags=["complaints"])
+router = APIRouter()
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 ServiceDep = Annotated[ComplaintService, FromDishka()]
 
 
-@router.post("/", response_model=ComplaintRead)
-@inject
+@router.post("/complaints")
 async def create_complaint(
-    data: ComplaintCreate,
-    session: SessionDep,
-    service: ServiceDep,
+    complaint_data: ComplaintCreate, db: SessionDep, complaint_service: ServiceDep
 ):
-    complaint = await service.create_complaint(session, data)
-    return complaint
+    try:
+        complaint = await complaint_service.create_complaint(
+            db,
+            description=complaint_data.description,
+            district=complaint_data.district,
+            status=complaint_data.status,
+            executor_id=complaint_data.executor_id,
+            address=complaint_data.address,
+        )
+        return ComplaintDTO(
+            complaint_id=complaint.complaint_id,
+            status=complaint.status,
+            executor_id=complaint.executor_id,
+            address=complaint.address,
+            district=complaint.district,
+            description=complaint.description,
+            resolution=complaint.resolution,
+            created_at=complaint.created_at,
+            execution_date=complaint.execution_date,
+            final_status_at=complaint.final_status_at,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/{complaint_id}", response_model=ComplaintRead)
-@inject
+@router.get("/complaints/{complaint_id}")
 async def get_complaint(
-    complaint_id: int,
-    session: SessionDep,
-    service: ServiceDep,
+    complaint_id: int, db: SessionDep, complaint_service: ServiceDep
 ):
-    complaint = await service.get_complaint(session, complaint_id)
-    if complaint is None:
+    complaint = await complaint_service.get_complaint(db, complaint_id)
+    if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
-    return complaint
-
-
-@router.get("/", response_model=ComplaintList)
-@inject
-async def list_complaints(
-    session: SessionDep,
-    service: ServiceDep,
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
-):
-    items, total = await service.list_complaints(session, limit=limit, offset=offset)
-    return ComplaintList(items=items, total=total)
-
-
-@router.patch("/{complaint_id}", response_model=ComplaintRead)
-@inject
-async def update_complaint(
-    complaint_id: int,
-    data: ComplaintUpdate,
-    session: SessionDep,
-    service: ServiceDep,
-):
-    complaint = await service.update_complaint(session, complaint_id, data)
-    if complaint is None:
-        raise HTTPException(status_code=404, detail="Complaint not found")
-    return complaint
-
-
-@router.get("/{complaint_id}/history", response_model=ComplaintHistoryRead)
-@inject
-async def get_complaint_history(
-    complaint_id: int,
-    session: SessionDep,
-    service: ServiceDep,
-):
-    history = await service.get_history(session, complaint_id)
-    return ComplaintHistoryRead(
-        complaint_id=history.complaint_id,
-        executors_ids=history.executors_ids,
-        responses=history.responses,
+    return ComplaintDTO(
+        complaint_id=complaint.complaint_id,
+        status=complaint.status,
+        executor_id=complaint.executor_id,
+        address=complaint.address,
+        district=complaint.district,
+        description=complaint.description,
+        resolution=complaint.resolution,
+        created_at=complaint.created_at,
+        execution_date=complaint.execution_date,
+        final_status_at=complaint.final_status_at,
     )
 
 
-@router.post("/{complaint_id}/executor-update", response_model=ComplaintRead)
-@inject
-async def executor_update(
+@router.put("/complaints/{complaint_id}")
+async def update_complaint(
     complaint_id: int,
-    update: ExecutorUpdateRequest,
-    session: SessionDep,
-    service: ServiceDep,
+    complaint_data: ComplaintUpdate,
+    db: SessionDep,
+    complaint_service: ServiceDep,
 ):
-    complaint = await service.handle_executor_update(session, complaint_id, update)
-    if complaint is None:
+    complaint = await complaint_service.update_complaint(
+        db,
+        complaint_id=complaint_id,
+        status=complaint_data.status,
+        resolution=complaint_data.resolution,
+        executor_id=complaint_data.executor_id,
+        address=complaint_data.address,
+    )
+    if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
-    return complaint
+    return ComplaintDTO(
+        complaint_id=complaint.complaint_id,
+        status=complaint.status,
+        executor_id=complaint.executor_id,
+        address=complaint.address,
+        district=complaint.district,
+        description=complaint.description,
+        resolution=complaint.resolution,
+        created_at=complaint.created_at,
+        execution_date=complaint.execution_date,
+        final_status_at=complaint.final_status_at,
+    )
+
+
+@router.delete("/complaints/{complaint_id}")
+async def delete_complaint(
+    complaint_id: int, db: SessionDep, complaint_service: ServiceDep
+):
+    try:
+        await complaint_service.delete_complaint(db, complaint_id)
+        return {"detail": "Complaint deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ================================
+# Ручки для работы с исполнителями (Executor)
+# ================================
+
+
+@router.post("/executors")
+async def create_executor(
+    executor_data: ExecutorUpdateRequest, db: SessionDep, complaint_service: ServiceDep
+):
+    executor = await complaint_service.create_executor(
+        db,
+        name=executor_data.name,
+        organization=executor_data.organization,
+        phone=executor_data.phone,
+        email=executor_data.email,
+    )
+    return ExecutorDTO(
+        executor_id=executor.executor_id,
+        name=executor.name,
+        organization=executor.organization,
+        phone=executor.phone,
+        email=executor.email,
+        is_active=executor.is_active,
+    )
+
+
+@router.get("/executors/{executor_id}")
+async def get_executor(executor_id: int, db: SessionDep, complaint_service: ServiceDep):
+    executor = await complaint_service.get_executor(db, executor_id)
+    if not executor:
+        raise HTTPException(status_code=404, detail="Executor not found")
+    return ExecutorDTO(
+        executor_id=executor.executor_id,
+        name=executor.name,
+        organization=executor.organization,
+        phone=executor.phone,
+        email=executor.email,
+        is_active=executor.is_active,
+    )
+
+
+@router.put("/executors/{executor_id}")
+async def update_executor(
+    executor_id: int,
+    executor_data: ExecutorUpdateRequest,
+    db: SessionDep,
+    complaint_service: ServiceDep,
+):
+    executor = await complaint_service.update_executor(
+        db,
+        executor_id=executor_id,
+        name=executor_data.name,
+        organization=executor_data.organization,
+        phone=executor_data.phone,
+        email=executor_data.email,
+    )
+    if not executor:
+        raise HTTPException(status_code=404, detail="Executor not found")
+    return ExecutorDTO(
+        executor_id=executor.executor_id,
+        name=executor.name,
+        organization=executor.organization,
+        phone=executor.phone,
+        email=executor.email,
+        is_active=executor.is_active,
+    )
+
+
+@router.delete("/executors/{executor_id}")
+async def delete_executor(
+    executor_id: int, db: SessionDep, complaint_service: ServiceDep
+):
+    try:
+        await complaint_service.delete_executor(db, executor_id)
+        return {"detail": "Executor deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ================================
+# Ручка для обновления статуса исполнителя по заявке
+# ================================
+
+
+@router.put("/complaints/{complaint_id}/executor-update")
+async def handle_executor_update(
+    complaint_id: int,
+    executor_update: ExecutorUpdateRequest,
+    db: SessionDep,
+    complaint_service: ServiceDep,
+):
+    try:
+        complaint = await complaint_service.handle_executor_update(
+            db, complaint_id=complaint_id, update=executor_update
+        )
+        return ComplaintDTO(
+            complaint_id=complaint.complaint_id,
+            status=complaint.status,
+            executor_id=complaint.executor_id,
+            address=complaint.address,
+            district=complaint.district,
+            description=complaint.description,
+            resolution=complaint.resolution,
+            created_at=complaint.created_at,
+            execution_date=complaint.execution_date,
+            final_status_at=complaint.final_status_at,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/moderators")
+async def create_moderator(
+    moderator_data: ModeratorCreate, db: SessionDep, complaint_service: ServiceDep
+):
+    try:
+        moderator = await complaint_service.create_moderator(
+            db,
+            username=moderator_data.username,
+            full_name=moderator_data.full_name,
+            email=moderator_data.email,
+            phone=moderator_data.phone,
+        )
+        return ModeratorDTO(
+            moderator_id=moderator.moderator_id,
+            username=moderator.username,
+            full_name=moderator.full_name,
+            email=moderator.email,
+            phone=moderator.phone,
+            is_active=moderator.is_active,
+            complaint_id=moderator.complaint_id,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/moderators/{moderator_id}")
+async def get_moderator(
+    moderator_id: int, db: SessionDep, complaint_service: ServiceDep
+):
+    moderator = await complaint_service.get_moderator(db, moderator_id)
+    if not moderator:
+        raise HTTPException(status_code=404, detail="Moderator not found")
+    return ModeratorDTO(
+        moderator_id=moderator.moderator_id,
+        username=moderator.username,
+        full_name=moderator.full_name,
+        email=moderator.email,
+        phone=moderator.phone,
+        is_active=moderator.is_active,
+        complaint_id=moderator.complaint_id,
+    )
+
+
+@router.put("/moderators/{moderator_id}")
+async def update_moderator(
+    moderator_id: int,
+    moderator_data: ModeratorUpdate,
+    db: SessionDep,
+    complaint_service: ServiceDep,
+):
+    moderator = await complaint_service.update_moderator(
+        db,
+        moderator_id=moderator_id,
+        username=moderator_data.username,
+        full_name=moderator_data.full_name,
+        email=moderator_data.email,
+        phone=moderator_data.phone,
+    )
+    if not moderator:
+        raise HTTPException(status_code=404, detail="Moderator not found")
+    return ModeratorDTO(
+        moderator_id=moderator.moderator_id,
+        username=moderator.username,
+        full_name=moderator.full_name,
+        email=moderator.email,
+        phone=moderator.phone,
+        is_active=moderator.is_active,
+        complaint_id=moderator.complaint_id,
+    )
+
+
+@router.delete("/moderators/{moderator_id}")
+async def delete_moderator(
+    moderator_id: int, db: SessionDep, complaint_service: ServiceDep
+):
+    try:
+        await complaint_service.delete_moderator(db, moderator_id)
+        return {"detail": "Moderator deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

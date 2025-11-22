@@ -3,13 +3,11 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
 from src.protocols.ai import AIClientProtocol
-from src.schemas.executor_update import (ExecutorUpdateRequest,
-                                         ExecutorUpdateResult)
+from src.schemas.executor_update import ExecutorUpdateRequest, ExecutorUpdateResult
 
 # Загружаем переменные окружения из .env (локальная разработка)
 load_dotenv()
@@ -101,7 +99,6 @@ EXECUTOR_RESPONSE_SYSTEM_PROMPT = """
 """.strip()
 
 
-
 class YandexAIClient(AIClientProtocol):
     """
     Реальный клиент ИИ: ходит в YandexGPT через OpenAI-совместимый API.
@@ -164,11 +161,11 @@ class YandexAIClient(AIClientProtocol):
         # Здесь можно привязать имя исполнителя к ID из вашей БД.
         # Пока что оставляем target_executor_id = None,
         # а дальнейший маппинг можно сделать в сервисе.
-        target_executor_id: Optional[str] = None
+        # target_executor_id: Optional[str] = None
 
         return ExecutorUpdateResult(
             is_forward=is_forward,
-            target_executor_id=target_executor_id,
+            target_executor_name=target_executor_name,
             is_blocking_bounce=is_blocking_bounce,
             notes=notes,
         )

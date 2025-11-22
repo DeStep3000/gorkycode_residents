@@ -1,78 +1,180 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import (
-    Integer,
     String,
+    Integer,
+    BigInteger,
+    Text,
     DateTime,
+    Boolean,
     ForeignKey,
-    JSON,
-    ARRAY,
-    text,
 )
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
-from enum import StrEnum
 
 
-class ComplaintStatus(StrEnum):
-    NEW = "new"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    BLOCKED = "blocked"
-    REDIRECTED = "redirected"
+# ============================
+# EXECUTORS
+# ============================
+
+
+class Executor(Base):
+    __tablename__ = "executors"
+
+    executor_id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
+    )
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    organization: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # заявки, где этот исполнитель текущий
+    complaints: Mapped[List["Complaint"]] = relationship(
+        back_populates="executor",
+        foreign_keys="Complaint.executor_id",
+    )
+
+    TicketStatus: Mapped[List["TicketStatus"]] = relationship(
+        back_populates="executor",
+        foreign_keys="TicketStatus.executor_id",
+    )
+
+
+# ============================
+# COMPLAINTS
+# ============================
 
 
 class Complaint(Base):
     __tablename__ = "complaints"
 
     complaint_id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, autoincrement=True
-    )
-    status: Mapped[str] = mapped_column(
-        String, default=ComplaintStatus.NEW.value, nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=text("now()"), nullable=False
-    )
-    description: Mapped[str] = mapped_column(String, nullable=False)
-    district: Mapped[str] = mapped_column(String, nullable=True)
-    resolution: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    execution_date: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    executor_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    final_status_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        BigInteger, primary_key=True, autoincrement=True
     )
 
-    history: Mapped["ComplaintHistory"] = relationship(
-        "ComplaintHistory",
+    # В БД TIMESTAMP WITHOUT TIME ZONE → timezone=False (по умолчанию)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,  # возвращает naive datetime
+        nullable=False,
+    )
+    execution_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+    final_status_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    status: Mapped[str] = mapped_column(String(50), nullable=False)
+    address: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    executor_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey("executors.executor_id"),
+        nullable=True,
+    )
+
+    district: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    resolution: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # --- relationships ---
+
+    executor: Mapped[Optional["Executor"]] = relationship(
+        back_populates="complaints",
+        foreign_keys=[executor_id],
+    )
+
+    # одна заявка → много модераторов (в таблице moderators FK complaint_id)
+    moderators: Mapped[List["Moderator"]] = relationship(
         back_populates="complaint",
-        uselist=False,
+    )
+
+    ticket_statuses: Mapped[List["TicketStatus"]] = relationship(
+        back_populates="complaint",
         cascade="all, delete-orphan",
     )
 
 
-class ComplaintHistory(Base):
-    """
-    Одна запись на complaint_id:
-    - executors_ids: список id исполнителей, которые уже трогали заявку (в порядке).
-    - responses: JSON вида {executor_id: {"response": "...", "timestamp": "..."}}
-    """
+# ============================
+# MODERATORS
+# ============================
 
-    __tablename__ = "complaint_histories"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    complaint_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("complaints.complaint_id", ondelete="CASCADE"),
-        unique=True,
-        nullable=False,
+class Moderator(Base):
+    __tablename__ = "moderators"
+
+    moderator_id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
     )
 
-    executors_ids: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    responses: Mapped[dict] = mapped_column(JSON, default=dict)
+    username: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    complaint: Mapped[Complaint] = relationship("Complaint", back_populates="history")
+    complaint_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey("complaints.complaint_id"),
+        nullable=True,
+    )
+
+    # --- relationships ---
+
+    complaint: Mapped[Optional["Complaint"]] = relationship(
+        back_populates="moderators",
+    )
+
+
+# ============================
+# TICKETSTATUSES
+# ============================
+
+
+class TicketStatus(Base):
+    __tablename__ = "TicketStatus"
+
+    # составной первичный ключ: status_code + complaint_id + data
+    status_code: Mapped[str] = mapped_column(
+        String(50),
+        primary_key=True,
+    )
+    complaint_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("complaints.complaint_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    data: Mapped[datetime] = mapped_column(
+        DateTime,
+        primary_key=True,
+        default=datetime.utcnow,  # naive datetime
+    )
+    executor_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey("executors.executor_id"),
+        nullable=True,
+    )
+
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # --- relationships ---
+
+    complaint: Mapped["Complaint"] = relationship(
+        back_populates="ticket_statuses",
+    )
+
+    executor: Mapped[Optional["Executor"]] = relationship(
+        back_populates="complaints",
+        foreign_keys=[executor_id],
+    )

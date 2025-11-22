@@ -1,53 +1,85 @@
 # app/schemas/complaint.py
 from datetime import datetime
-from typing import Optional, Dict, List
-from pydantic import BaseModel, Field
+from typing import Optional
+from pydantic import BaseModel
+from enum import StrEnum
 
-from src.db.models import ComplaintStatus
+
+class ComplaintStatus(StrEnum):
+    NEW = "new"
+    ASSIGNED_RESPONSIBLE = "assigned_responsible"
+    IN_PROGRESS_RESPONSIBLE = "in_progress_responsible"
+    MODERATED = "moderated"
+    CLOSED = "closed"
+    BLOCK_WORKFLOW = "block_workflow"
 
 
-class ComplaintBase(BaseModel):
+class ComplaintCreate(BaseModel):
     description: str
-    district: Optional[str] = None
+    district: str | None = None
+    status: ComplaintStatus
+    executor_id: str | None = None
+    address: str
 
 
-class ComplaintCreate(ComplaintBase):
-    # Житель создаёт заявку
-    executor_id: Optional[str] = (
-        None  # можно сразу проставлять исполнителя (если есть логика маршрутизации)
-    )
-
-
+# Для обновления существующей жалобы
 class ComplaintUpdate(BaseModel):
-    # Обновление модератором
     status: Optional[ComplaintStatus] = None
     resolution: Optional[str] = None
-    executor_id: Optional[str] = None
-    execution_date: Optional[datetime] = None
-    final_status_at: Optional[datetime] = None
+    executor_id: Optional[int] = None
+    address: Optional[str] = None
 
 
+# Для чтения жалобы (детали)
 class ComplaintRead(BaseModel):
     complaint_id: int
-    status: ComplaintStatus
-    created_at: datetime
     description: str
     district: Optional[str]
+    status: ComplaintStatus
+    executor_id: Optional[int]
+    address: str
     resolution: Optional[str]
+    created_at: datetime
     execution_date: Optional[datetime]
-    executor_id: Optional[str]
     final_status_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
 
-
+# Для списка жалоб (сокращенная информация)
 class ComplaintList(BaseModel):
-    items: list[ComplaintRead]
-    total: int
-
-
-class ComplaintHistoryRead(BaseModel):
     complaint_id: int
-    executors_ids: List[str] = Field(default_factory=list)
-    responses: Dict[str, dict] = Field(default_factory=dict)
+    description: str
+    status: ComplaintStatus
+    executor_id: Optional[int]
+    address: str
+    created_at: datetime
+
+
+# ============================
+# Moderator Pydantic Schemas
+# ============================
+
+
+# Для создания нового модератора
+class ModeratorCreate(BaseModel):
+    username: str
+    full_name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+
+# Для обновления данных модератора
+class ModeratorUpdate(BaseModel):
+    username: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+
+# Для чтения информации о модераторе
+class ModeratorRead(BaseModel):
+    moderator_id: int
+    username: str
+    full_name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    is_active: bool
