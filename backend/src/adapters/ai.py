@@ -1,8 +1,9 @@
-# src/adapters/ai.py
 from __future__ import annotations
 
 import json
 import os
+import re
+from typing import Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -19,84 +20,105 @@ YC_MODEL = os.getenv("YC_MODEL", "yandexgpt-lite/rc")
 
 # ==========================
 #  PROMPT для YandexGPT
+#  (та же логика, что в тестовом скрипте, но без эскалации)
 # ==========================
 
 EXECUTOR_RESPONSE_SYSTEM_PROMPT = """
 Ты — интеллектуальный помощник модератора платформы «Лобачевский».
-Твоя задача — анализировать текст ответа исполнителя на жалобу жителя
-и классифицировать его по признакам «футбола».
 
-Входные данные:
-- complaint_description — текст жалобы жителя (может содержать служебную информацию о времени)
-- executor_response — текст ответа исполнителя по этой жалобе
+Твоя задача:
+проанализировать одну конкретную заявку по структурированным данным,
+учитывая текст жалобы, текст ответа исполнителя и длительность рассмотрения,
+и вернуть РЕШЕНИЕ ДЛЯ МОДЕРАТОРА.
 
-Нужно определить:
-
-1) is_forward:
-   Является ли ответ фактическим перенаправлением жалобы на другого исполнителя
-   или организацию.
-
-   Примеры перенаправления:
-   - «Просьба перенаправить в ДУК Приокского района»
-   - «Обратитесь в ГИБДД»
-   - «Заявка передана в регионального оператора ООО “Нижэкология-НН”»
-   - «заявка передана в управляющую компанию» и т.п.
-
-2) target_executor_name:
-   Кому именно предлагается обратиться или куда перенаправлена заявка.
-   Это может быть конкретная организация, служба или тип исполнителя:
-   - «ДУК Приокского района»
-   - «ГИБДД»
-   - «региональный оператор по вывозу мусора»
-   - «управляющая компания»
-   Если в ответе явно нет понятного адресата — оставить null.
-
-3) is_blocking_bounce:
-   Является ли ответ «плохим футболом»:
-   - исполнитель отказывает в решении проблемы
-   - не берёт на себя ответственность
-   - и НЕ даёт понятного адресата, куда нужно обратиться
-
-   Примеры «плохого футбола»:
-   - «не наша компетенция», «не относится к нашим полномочиям»
-   - «мы этим не занимаемся»
-   - общие фразы типа «обратитесь в соответствующую организацию»
-     без указания конкретной организации или службы.
-
-4) notes:
-   Краткое пояснение для модератора, что произошло и почему так классифицировано.
-
-Формат ответа — строго JSON без лишнего текста:
+Тебе передают JSON такого вида:
 
 {
-  "is_forward": true/false,
-  "target_executor_name": "строка или null",
-  "is_blocking_bounce": true/false,
-  "notes": "краткое пояснение на русском языке"
+  "complaint_id": int,
+  "status": "текущий статус в системе",
+  "district": int | null,
+  "executor_id": int | null,
+
+  "texts": {
+    "description": "текст жалобы жителя",
+    "executor_response": "текст служебного ответа исполнителя (резолюция)"
+  },
+
+  "timing": {
+    "real_duration_days": float | null,
+    "expected_duration_days": float | null,
+    "delay_days": float | null,
+    "football_threshold_days": float | null,
+    "ratio_to_expected": float | null
+  }
 }
 
-Правила:
+Нужно ВЕРНУТЬ JSON СТРОГО следующего вида:
 
-- Если по смыслу ответ: «работа выполнена», «устранено», «меры приняты»,
-  без просьбы обратиться куда-то ещё, то:
-  - is_forward = false
-  - target_executor_name = null
-  - is_blocking_bounce = false
+{
+  "decision": "forward" | "stop" | "ok",
+  "is_forward": true/false,
+  "is_blocking_bounce": true/false,
+  "target_executor_name": "строка или null",
+  "moderator_message": "короткое пояснение для модератора",
+  "ai_badge": "Перенаправлена ИИ" | "Остановлена ИИ" | "Без вмешательства ИИ"
+}
 
-- Если есть явные формулировки:
-  - «просим перенаправить в ...»
-  - «обратитесь в ...»
-  - «заявка передана в ...»
-  - «компетенция такой-то организации»
-  то:
-  - is_forward = true
-  - target_executor_name = извлечённое название организации или типа исполнителя
+ОПИСАНИЕ ПОЛЕЙ:
 
-- Если есть отказ («не наша компетенция», «не относимся», «мы этим не занимаемся»)
-  и при этом нет понятного адресата, то:
-  - is_blocking_bounce = true
-  - target_executor_name = null (если его нельзя однозначно определить)
+1) decision:
+   - "forward" — ответ исполнителя явно перекладывает ответственность на другого исполнителя или организацию.
+   - "stop" — плохой футбол: исполнитель отказывается, снимает с себя ответственность и НЕ указывает конкретного адресата.
+   - "ok" — футбол отсутствует, исполнитель работает по заявке, ответ по существу.
+
+2) is_forward:
+   true — если по тексту executor_response видно, что заявка должна уйти другому исполнителю
+   (например: «перенаправить в …», «заявка передана …», «обратитесь в ГИБДД»).
+
+3) target_executor_name:
+   Название новой организации/исполнителя.
+   Если определить невозможно — null.
+
+4) is_blocking_bounce:
+   true — если это «плохой футбол»:
+   - «не наша компетенция», «не относимся», «мы этим не занимаемся»,
+   - «обратитесь в соответствующую организацию» без указания, в какую именно.
+
+5) moderator_message:
+   Короткое пояснение:
+   - что сделал исполнитель (выполнил / перекинул / отказался),
+   - кому нужно переназначить (если decision="forward"),
+   - учти длительность, если real_duration_days заметно превышает expected_duration_days
+     или football_threshold_days — упомяни это.
+
+6) ai_badge:
+   - "Перенаправлена ИИ"  — если decision="forward"
+   - "Остановлена ИИ"     — если decision="stop"
+   - "Без вмешательства ИИ" — если decision="ok"
+
+ВРЕМЯ:
+- Время влияет только на формулировку moderator_message.
+- Никаких дополнительных статусов на основе времени нет.
+- Даже если заявка “долго висит”, решение остаётся только из трёх:
+  forward / stop / ok.
+
+Формат ответа:
+- Строго один JSON-объект.
+- Никакого Markdown, без ```json, без текста до или после.
 """.strip()
+
+
+def _extract_json_maybe(text: str) -> dict:
+    """
+    Аккуратно вытаскиваем JSON из ответа модели.
+    Иногда YandexGPT может добавить лишние символы/текст вокруг.
+    """
+    match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+    if not match:
+        raise ValueError(
+            f"JSON не найден в тексте ответа модели:\n{text[:200]}...")
+    candidate = match.group(0)
+    return json.loads(candidate)
 
 
 class YandexAIClient(AIClientProtocol):
@@ -128,17 +150,46 @@ class YandexAIClient(AIClientProtocol):
         update: ExecutorUpdateRequest,
     ) -> ExecutorUpdateResult:
         """
-        Отправляем в модель JSON с описанием жалобы и ответом исполнителя.
-        Модель отвечает JSON с флагами is_forward / is_blocking_bounce и
-        именем целевого исполнителя.
+        Формируем структурированный payload (как в тесте) и отправляем в модель.
+        Модель отвечает JSON со структурой:
+          decision, is_forward, is_blocking_bounce, target_executor_name,
+          moderator_message, ai_badge.
+        Мы маппим это на ExecutorUpdateResult.
         """
 
+        # Пытаемся аккуратно вытащить максимум полей из update.
+        # Если каких-то атрибутов нет в ExecutorUpdateRequest — будет None, всё ок.
+        complaint_id = getattr(update, "complaint_id", None)
+        status = getattr(update, "status", None)
+        district = getattr(update, "district", None)
+        executor_id = getattr(update, "executor_id", None)
+
+        real_duration_days = getattr(update, "real_duration_days", None)
+        expected_duration_days = getattr(
+            update, "expected_duration_days", None)
+        delay_days = getattr(update, "delay_days", None)
+        football_threshold_days = getattr(
+            update, "football_threshold_days", None)
+        ratio_to_expected = getattr(update, "ratio_to_expected", None)
+
+        timing = {
+            "real_duration_days": float(real_duration_days) if real_duration_days is not None else None,
+            "expected_duration_days": float(expected_duration_days) if expected_duration_days is not None else None,
+            "delay_days": float(delay_days) if delay_days is not None else None,
+            "football_threshold_days": float(football_threshold_days) if football_threshold_days is not None else None,
+            "ratio_to_expected": float(ratio_to_expected) if ratio_to_expected is not None else None,
+        }
+
         payload = {
-            "complaint_description": complaint_description,
-            "executor_response": update.response_text,
-            # при желании сюда можно добавлять служебные поля по времени:
-            # "status": update.status,
-            # "executed_at": update.executed_at.isoformat() if update.executed_at else None,
+            "complaint_id": int(complaint_id) if complaint_id is not None else None,
+            "status": status,
+            "district": int(district) if district is not None else None,
+            "executor_id": int(executor_id) if executor_id is not None else None,
+            "texts": {
+                "description": complaint_description,
+                "executor_response": update.response_text,
+            },
+            "timing": timing,
         }
 
         response = self._client.responses.create(
@@ -149,23 +200,24 @@ class YandexAIClient(AIClientProtocol):
             max_output_tokens=400,
         )
 
-        # Модель по инструкции должна вернуть чистый JSON
         raw = response.output_text
-        data = json.loads(raw)
 
+        # Страхуемся от лишнего текста вокруг JSON
+        data = _extract_json_maybe(raw)
+
+        # Шесть полей из ответа модели
+        decision = data.get("decision")
         is_forward = bool(data.get("is_forward"))
         is_blocking_bounce = bool(data.get("is_blocking_bounce"))
-        target_executor_name = data.get("target_executor_name")
-        notes = data.get("notes")
-
-        # Здесь можно привязать имя исполнителя к ID из вашей БД.
-        # Пока что оставляем target_executor_id = None,
-        # а дальнейший маппинг можно сделать в сервисе.
-        # target_executor_id: Optional[str] = None
+        target_executor_name: Optional[str] = data.get("target_executor_name")
+        moderator_message: Optional[str] = data.get("moderator_message")
+        ai_badge: Optional[str] = data.get("ai_badge")
 
         return ExecutorUpdateResult(
+            decision=decision,
             is_forward=is_forward,
-            target_executor_name=target_executor_name,
             is_blocking_bounce=is_blocking_bounce,
-            notes=notes,
+            target_executor_name=target_executor_name,
+            moderator_message=moderator_message,
+            ai_badge=ai_badge,
         )
