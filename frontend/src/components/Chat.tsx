@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 
-const API_BASE = "http://localhost:8000";
+import { API_BASE } from "../config";
 
 type Message = {
   id?: number;
@@ -37,6 +37,10 @@ export default function Chat({ ticketId, token }: ChatProps) {
         console.error("failed to load history", err);
       });
   }, [ticketId, token]);
+
+    const ws = new WebSocket(
+    `${API_BASE.replace("http", "ws")}/ws/tickets/${ticketId}?token=${token}`
+  );
 
   // 2) подключаемся к вебсокету
   useEffect(() => {

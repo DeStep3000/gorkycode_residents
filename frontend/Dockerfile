@@ -1,17 +1,20 @@
-FROM node:22-alpine
+# Use official Node.js runtime as base image
+FROM node:18-alpine
 
+# Set working directory
 WORKDIR /app
 
-# сначала только package*.json — для кеша npm install
-COPY package.json package-lock.json ./
+# Copy package files
+COPY package*.json ./
 
+# Install dependencies
 RUN npm install
 
+# Copy source code
 COPY . .
 
-# прод-сборка
-RUN npm run build
+# Expose port
+EXPOSE 4173
 
-# запуск предпросмотра сборки
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
-
+# Start development server
+CMD ["npm", "run", "dev", "--", "--host"]
