@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dishka.integrations.fastapi import setup_dishka
 
 from src.api.complaints import router as complaints_router
+from src.api.tickets_front import router as tickets_front_router
 from src.di.container import container
 from src.db.session import engine
 from src.db.base import Base
@@ -40,3 +41,6 @@ app.add_middleware(
 setup_dishka(container, app)
 
 app.include_router(complaints_router)
+
+app.include_router(tickets_front_router)
+

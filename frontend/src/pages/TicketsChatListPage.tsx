@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import Chat from "../components/Chat";
-
-const API_BASE = "http://localhost:8000";
+import { API_BASE } from "../config";
 
 interface Ticket {
   id: number;
