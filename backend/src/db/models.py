@@ -21,7 +21,6 @@ from src.db.base import Base
 # EXECUTORS
 # ============================
 
-
 class Executor(Base):
     __tablename__ = "executors"
 
@@ -41,9 +40,9 @@ class Executor(Base):
         foreign_keys="Complaint.executor_id",
     )
 
-    TicketStatus: Mapped[List["TicketStatus"]] = relationship(
-        back_populates="executor",
-        foreign_keys="TicketStatus.executor_id",
+    # исправляем обратную связь с TicketStatus
+    ticket_statuses: Mapped[List["TicketStatus"]] = relationship(
+        "TicketStatus", back_populates="executor", foreign_keys="TicketStatus.executor_id"
     )
 
 
@@ -141,8 +140,17 @@ class Moderator(Base):
 # ============================
 
 
+# ============================
+# EXECUTORS
+# ============================
+
+
+# ============================
+# TICKETSTATUSES
+# ============================
+
 class TicketStatus(Base):
-    __tablename__ = "TicketStatus"
+    __tablename__ = "ticket_statuses"
 
     # составной первичный ключ: status_code + complaint_id + data
     status_code: Mapped[str] = mapped_column(
@@ -174,7 +182,8 @@ class TicketStatus(Base):
         back_populates="ticket_statuses",
     )
 
+    # Связываем обратную связь с Executor
     executor: Mapped[Optional["Executor"]] = relationship(
-        back_populates="complaints",
+        back_populates="ticket_statuses",
         foreign_keys=[executor_id],
     )
