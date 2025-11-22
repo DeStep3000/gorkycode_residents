@@ -23,7 +23,7 @@ class ExecutorRepository(ExecutorRepositoryProtocol):
         email: Optional[str],
     ) -> Executor:
         executor = Executor(
-            name=name, organization=organization, phone=phone, email=email
+            name=name, organization=organization, phone=phone, email=email, is_active=True
         )
         session.add(executor)
         await session.flush()

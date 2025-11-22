@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 class ExecutorDTO(BaseModel):
     executor_id: int
-    name: int
-    organization: int | None
+    name: str
+    organization: str | None
     phone: str | None
     email: str | None
     is_active: bool

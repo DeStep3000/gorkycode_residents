@@ -11,6 +11,13 @@ class ExecutorUpdateRequest(BaseModel):
     executed_at: Optional[datetime] = None
 
 
+class ExecutorCreateRequest(BaseModel):
+    name: str
+    organization: str
+    phone: str
+    email: str
+
+
 class ExecutorUpdateResult(BaseModel):
     decision: str
     is_forward: bool
